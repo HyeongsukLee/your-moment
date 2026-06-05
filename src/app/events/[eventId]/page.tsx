@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import PhotoModal from "@/components/PhotoModal";
+import RunningCat from "@/components/RunningCat";
 
 type Photo = { id: string; thumbnailUrl: string };
 type EventInfo = { id: string; name: string; date: string; photoCount: number };
@@ -118,6 +119,22 @@ export default function EventGalleryPage() {
       {/* 사진 다운로드 모달 */}
       {selected && (
         <PhotoModal photo={selected} onClose={() => setSelected(null)} />
+      )}
+
+      {/* 사진찾기 로딩 오버레이 (달리는 고양이) */}
+      {searching && (
+        <div className="fixed inset-0 z-50 bg-gray-950/95 backdrop-blur-sm flex flex-col items-center justify-center gap-6 px-8">
+          <RunningCat />
+          <div className="text-center">
+            <p className="text-lg font-semibold">사진을 찾고 있습니다</p>
+            <p className="text-gray-400 text-sm mt-1">
+              얼굴을 분석하는 중이에요 · 잠시만요
+            </p>
+          </div>
+          <div className="w-40 h-1.5 rounded-full bg-gray-800 overflow-hidden">
+            <div className="h-full w-1/2 bg-indigo-500 rounded-full animate-pulse" />
+          </div>
+        </div>
       )}
     </div>
   );

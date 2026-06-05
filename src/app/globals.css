@@ -24,3 +24,31 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* 달리는 고양이 로딩 애니메이션 */
+@keyframes ym-cat-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+@keyframes ym-leg-swing {
+  0%, 100% { transform: rotate(30deg); }
+  50% { transform: rotate(-30deg); }
+}
+@keyframes ym-tail-wag {
+  0%, 100% { transform: rotate(-14deg); }
+  50% { transform: rotate(16deg); }
+}
+@keyframes ym-speed {
+  0% { transform: translateX(24px); opacity: 0; }
+  35% { opacity: 0.7; }
+  100% { transform: translateX(-34px); opacity: 0; }
+}
+
+.ym-cat { animation: ym-cat-bob 0.4s infinite ease-in-out; transform-box: fill-box; }
+.ym-leg { transform-box: fill-box; transform-origin: 50% 0%; }
+.ym-leg-a { animation: ym-leg-swing 0.4s infinite ease-in-out; }
+.ym-leg-b { animation: ym-leg-swing 0.4s infinite ease-in-out 0.2s; }
+.ym-tail { transform-box: fill-box; transform-origin: 100% 100%; animation: ym-tail-wag 0.45s infinite ease-in-out; }
+.ym-speed { animation: ym-speed 0.5s infinite linear; }
+.ym-speed-2 { animation: ym-speed 0.5s infinite linear 0.15s; }
+.ym-speed-3 { animation: ym-speed 0.5s infinite linear 0.3s; }

@@ -65,7 +65,7 @@ export default async function HomePage() {
     <div className="max-w-md mx-auto h-[100dvh] flex flex-col px-4">
       <header className="shrink-0 flex items-center justify-between py-4">
         <div>
-          <h1 className="text-2xl font-bold">유어모먼트</h1>
+          <h1 className="text-2xl font-bold">your moment</h1>
           <p className="text-gray-400 text-sm mt-0.5">오늘의 순간을 찾아보세요</p>
         </div>
         <Link

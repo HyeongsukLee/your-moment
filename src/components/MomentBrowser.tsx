@@ -28,6 +28,10 @@ export default function MomentBrowser({ moments }: { moments: Moment[] }) {
   const listRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  const today = useMemo(() => new Date(), []);
+  const todayKey = ymd(today);
 
   // 날짜(YYYY-MM-DD) → moment 매핑
   const byDate = useMemo(() => {
@@ -36,10 +40,9 @@ export default function MomentBrowser({ moments }: { moments: Moment[] }) {
     return map;
   }, [moments]);
 
-  // 가장 최근 순간이 있는 달을 기본으로 표시
-  const initial = moments.length ? new Date(moments[0].date) : new Date();
+  // 기본은 오늘의 달을 표시
   const [cursor, setCursor] = useState(
-    new Date(initial.getFullYear(), initial.getMonth(), 1)
+    new Date(today.getFullYear(), today.getMonth(), 1)
   );
 
   const year = cursor.getFullYear();
@@ -47,20 +50,39 @@ export default function MomentBrowser({ moments }: { moments: Moment[] }) {
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-  // 항상 42칸(6주) 고정 — 앞쪽 빈칸 + 날짜 + 뒤쪽 빈칸
   const cells: (number | null)[] = [
     ...Array(firstDay).fill(null),
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ];
   while (cells.length < CAL_ROWS * 7) cells.push(null);
 
-  function selectDate(day: number) {
-    const m = byDate.get(ymd(new Date(year, month, day)));
-    if (!m) return;
-    // 카드 순서는 그대로 두고, 해당 카드 위치로 스크롤
-    const el = cardRefs.current.get(m.id);
-    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+  function scrollToMoment(m: Moment) {
+    cardRefs.current.get(m.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
     setHighlightId(m.id);
+  }
+
+  // 기준일(<= dateKey) 중 가장 최신 행사 (moments는 최신순 정렬)
+  function mostRecentPast(dateKey: string): Moment | null {
+    const target = new Date(dateKey).getTime();
+    for (const m of moments) {
+      if (new Date(ymd(new Date(m.date))).getTime() <= target) return m;
+    }
+    return null;
+  }
+
+  function pickDate(key: string) {
+    setSelectedDate(key);
+    const m = byDate.get(key);
+    if (m) scrollToMoment(m);
+    else {
+      const past = mostRecentPast(key);
+      if (past) scrollToMoment(past);
+    }
+  }
+
+  function goToday() {
+    setCursor(new Date(today.getFullYear(), today.getMonth(), 1));
+    pickDate(todayKey);
   }
 
   return (
@@ -74,9 +96,17 @@ export default function MomentBrowser({ moments }: { moments: Moment[] }) {
           >
             ‹
           </button>
-          <span className="font-semibold text-sm">
-            {year}년 {month + 1}월
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-sm">
+              {year}년 {month + 1}월
+            </span>
+            <button
+              onClick={goToday}
+              className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-600/20 text-indigo-300 border border-indigo-700/50 active:bg-indigo-600/40"
+            >
+              오늘
+            </button>
+          </div>
           <button
             onClick={() => setCursor(new Date(year, month + 1, 1))}
             className="w-7 h-7 rounded-lg text-gray-400 active:bg-gray-800"
@@ -103,22 +133,25 @@ export default function MomentBrowser({ moments }: { moments: Moment[] }) {
           {cells.map((day, idx) => {
             if (day === null) return <div key={`e-${idx}`} className="h-7" />;
             const key = ymd(new Date(year, month, day));
-            const m = byDate.get(key);
-            const has = !!m;
+            const isEvent = byDate.has(key);
+            const isToday = key === todayKey;
+            const isSelected = key === selectedDate;
             return (
               <button
                 key={key}
-                onClick={() => selectDate(day)}
-                disabled={!has}
+                onClick={() => pickDate(key)}
                 className={`h-7 rounded-md text-xs flex items-center justify-center relative transition-colors ${
-                  has
-                    ? "bg-indigo-600/80 text-white font-semibold active:bg-indigo-700"
-                    : "text-gray-600"
+                  isSelected
+                    ? "bg-indigo-600 text-white font-bold"
+                    : isEvent
+                      ? "bg-gray-700 text-white font-medium active:bg-gray-600"
+                      : "text-gray-500 active:bg-gray-800"
                 }`}
               >
                 {day}
-                {has && (
-                  <span className="absolute bottom-0.5 w-1 h-1 rounded-full bg-white/80" />
+                {/* 오늘 표시: 빨간 점 */}
+                {isToday && (
+                  <span className="absolute bottom-0.5 w-1 h-1 rounded-full bg-red-500" />
                 )}
               </button>
             );

@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import KakaoProvider from "next-auth/providers/kakao";
+import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { db } from "@/lib/db";
 
@@ -16,6 +17,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           KakaoProvider({
             clientId: process.env.KAKAO_CLIENT_ID,
             clientSecret: process.env.KAKAO_CLIENT_SECRET!,
+          }),
+        ]
+      : []),
+    // 구글도 env가 설정된 경우에만 등록 (자격증명 준비되면 활성화)
+    ...(process.env.GOOGLE_CLIENT_ID
+      ? [
+          GoogleProvider({
+            clientId: process.env.GOOGLE_CLIENT_ID,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
           }),
         ]
       : []),

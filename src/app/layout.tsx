@@ -5,7 +5,7 @@ import "./globals.css";
 const geist = Geist({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "유어모먼트 | Your Moment",
+  title: "your moment",
   description: "오늘의 순간에서 나를 찾아보세요",
 };
 
