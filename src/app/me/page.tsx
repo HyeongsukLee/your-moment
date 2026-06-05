@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import Image from "next/image";
+import { saveImages } from "@/lib/download";
+import Toast, { type ToastData } from "@/components/Toast";
 
 type Group = {
   eventId: string;
@@ -41,6 +43,8 @@ export default function MyPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [downloading, setDownloading] = useState(false);
+  const [toast, setToast] = useState<ToastData | null>(null);
+  const closeToast = useCallback(() => setToast(null), []);
 
   useEffect(() => {
     fetch("/api/me/photos")
@@ -69,7 +73,7 @@ export default function MyPage() {
   }
 
   async function downloadSelected() {
-    const ids = [...selected];
+    const ids = [...selected].filter((id) => !id.startsWith("demo-"));
     if (ids.length === 0) return;
     setDownloading(true);
     try {
@@ -79,15 +83,13 @@ export default function MyPage() {
         body: JSON.stringify({ photoIds: ids }),
       });
       const { urls } = await res.json();
-      for (const { url } of urls ?? []) {
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      }
+      await saveImages(urls ?? []);
       setSelected(new Set());
+      setToast({
+        message: `${ids.length}장 저장 완료`,
+        sub: "사진 앱에서 확인하세요",
+        showGallery: true,
+      });
     } finally {
       setDownloading(false);
     }
@@ -223,6 +225,9 @@ export default function MyPage() {
           </button>
         </div>
       )}
+
+      {/* 다운로드 완료 토스트 */}
+      <Toast toast={toast} onClose={closeToast} />
     </div>
   );
 }

@@ -25,6 +25,12 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* 토스트 슬라이드업 */
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
 /* 달리는 고양이 로딩 애니메이션 */
 @keyframes ym-cat-bob {
   0%, 100% { transform: translateY(0); }
