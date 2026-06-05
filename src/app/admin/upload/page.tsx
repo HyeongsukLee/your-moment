@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
 type EventOption = { id: string; name: string; date: string; photoCount: number };
 
 export default function AdminUploadPage() {
   const router = useRouter();
+  const [isAdmin, setIsAdmin] = useState(false);
   const [events, setEvents] = useState<EventOption[]>([]);
   const [eventId, setEventId] = useState("");
   const [progress, setProgress] = useState({ done: 0, total: 0 });
@@ -16,22 +17,31 @@ export default function AdminUploadPage() {
   const [newDate, setNewDate] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  async function loadEvents() {
+  // 업로드 확인 모달용
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
+
+  const loadEvents = useCallback(async () => {
     const res = await fetch("/api/admin/events");
     if (res.status === 403) {
-      alert("관리자만 접근할 수 있습니다");
+      alert("운영진만 접근할 수 있습니다");
       router.push("/");
       return;
     }
     const data = await res.json();
     setEvents(data);
-    if (data.length && !eventId) setEventId(data[0].id);
-  }
+    setEventId((prev) => prev || (data[0]?.id ?? ""));
+  }, [router]);
 
   useEffect(() => {
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then((d) => setIsAdmin(!!d.isAdmin))
+      .catch(() => {});
     loadEvents();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadEvents]);
+
+  const selectedEvent = events.find((e) => e.id === eventId);
 
   async function createEvent() {
     if (!newName.trim() || !newDate) {
@@ -56,31 +66,48 @@ export default function AdminUploadPage() {
     setEventId(created.id);
   }
 
-  async function uploadFiles(files: FileList) {
+  // 파일 선택 → 확인 모달 띄우기
+  function onFilesPicked(files: FileList) {
     if (!eventId) {
-      alert("순간을 먼저 선택하거나 새로 만드세요");
+      alert("순간을 먼저 선택하세요");
       return;
     }
+    const arr = Array.from(files);
+    setPendingFiles(arr);
+    setPreviews(arr.slice(0, 6).map((f) => URL.createObjectURL(f)));
+  }
+
+  function cancelPending() {
+    previews.forEach((u) => URL.revokeObjectURL(u));
+    setPendingFiles([]);
+    setPreviews([]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  async function confirmUpload() {
+    const files = pendingFiles;
+    previews.forEach((u) => URL.revokeObjectURL(u));
+    setPreviews([]);
+    setPendingFiles([]);
 
     setUploading(true);
     setProgress({ done: 0, total: files.length });
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-
-      // 1. Presigned URL 발급 (원본 + 썸네일)
       const urlRes = await fetch("/api/admin/upload-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ eventId, contentType: file.type }),
       });
+      if (urlRes.status === 403) {
+        alert("이 행사에 업로드할 권한이 없습니다");
+        break;
+      }
       const { photoId, s3Key, thumbnailKey, uploadUrl, thumbnailUploadUrl } =
         await urlRes.json();
 
-      // 2. 썸네일 생성 (브라우저에서 리사이즈)
       const thumbBlob = await makeThumbnail(file, 400);
-
-      // 3. S3에 원본 + 썸네일 동시 업로드
       await Promise.all([
         fetch(uploadUrl, {
           method: "PUT",
@@ -93,34 +120,29 @@ export default function AdminUploadPage() {
           body: thumbBlob,
         }),
       ]);
-
-      // 4. Rekognition 인덱싱 + DB 저장
       await fetch("/api/admin/index-photo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ eventId, photoId, s3Key, thumbnailKey }),
       });
-
       setProgress({ done: i + 1, total: files.length });
     }
 
     setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
     await loadEvents();
     alert(`${files.length}장 업로드 완료!`);
   }
 
-  // 원본 이미지를 maxSize px 비율 내로 리사이즈한 JPEG 썸네일 생성
   async function makeThumbnail(file: File, maxSize: number): Promise<Blob> {
     const bitmap = await createImageBitmap(file);
     const scale = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height));
     const w = Math.round(bitmap.width * scale);
     const h = Math.round(bitmap.height * scale);
-
     const canvas = document.createElement("canvas");
     canvas.width = w;
     canvas.height = h;
     canvas.getContext("2d")!.drawImage(bitmap, 0, 0, w, h);
-
     return new Promise<Blob>((resolve) =>
       canvas.toBlob((b) => resolve(b!), "image/jpeg", 0.8)
     );
@@ -135,46 +157,60 @@ export default function AdminUploadPage() {
         <h1 className="text-xl font-bold">사진 업로드</h1>
       </header>
 
-      {/* 순간 선택 */}
       <label className="block mb-2 text-sm text-gray-400">순간 선택</label>
       <select
         value={eventId}
         onChange={(e) => setEventId(e.target.value)}
         className="w-full bg-gray-900 rounded-xl px-4 py-3 text-white mb-4 outline-none focus:ring-2 ring-indigo-500"
       >
-        {events.length === 0 && <option value="">순간이 없습니다 — 아래에서 생성</option>}
+        {events.length === 0 && (
+          <option value="">
+            {isAdmin ? "순간이 없습니다 — 아래에서 생성" : "배정된 행사가 없습니다"}
+          </option>
+        )}
         {events.map((ev) => (
           <option key={ev.id} value={ev.id}>
-            {ev.name} ({new Date(ev.date).toLocaleDateString("ko-KR")}) · {ev.photoCount}장
+            {ev.name} ({new Date(ev.date).toLocaleDateString("ko-KR")}) ·{" "}
+            {ev.photoCount}장
           </option>
         ))}
       </select>
 
-      {/* 새 순간 만들기 */}
-      <details className="mb-6 bg-gray-900 rounded-xl p-4">
-        <summary className="text-sm text-gray-300 cursor-pointer">＋ 새 순간 만들기</summary>
-        <div className="mt-3 space-y-2">
-          <input
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="순간 이름 (예: 2026 서울 마라톤)"
-            className="w-full bg-gray-800 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 ring-indigo-500"
-          />
-          <input
-            type="date"
-            value={newDate}
-            onChange={(e) => setNewDate(e.target.value)}
-            className="w-full bg-gray-800 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 ring-indigo-500"
-          />
-          <button
-            onClick={createEvent}
-            disabled={creating}
-            className="w-full bg-gray-700 active:bg-gray-600 text-white text-sm font-medium py-2.5 rounded-lg disabled:opacity-60"
-          >
-            {creating ? "생성 중..." : "순간 생성"}
-          </button>
-        </div>
-      </details>
+      {/* 새 순간 만들기 — 관리자 전용 */}
+      {isAdmin && (
+        <details className="mb-6 bg-gray-900 rounded-xl p-4">
+          <summary className="text-sm text-gray-300 cursor-pointer">
+            ＋ 새 순간 만들기
+          </summary>
+          <div className="mt-3 space-y-2">
+            <input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="순간 이름 (예: 2026 서울 마라톤)"
+              className="w-full bg-gray-800 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 ring-indigo-500"
+            />
+            <input
+              type="date"
+              value={newDate}
+              onChange={(e) => setNewDate(e.target.value)}
+              className="w-full bg-gray-800 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 ring-indigo-500"
+            />
+            <button
+              onClick={createEvent}
+              disabled={creating}
+              className="w-full bg-gray-700 active:bg-gray-600 text-white text-sm font-medium py-2.5 rounded-lg disabled:opacity-60"
+            >
+              {creating ? "생성 중..." : "순간 생성"}
+            </button>
+          </div>
+        </details>
+      )}
+
+      {!isAdmin && (
+        <p className="text-xs text-gray-500 mb-4 -mt-1">
+          작가는 관리자가 배정한 행사에만 업로드할 수 있어요.
+        </p>
+      )}
 
       <button
         onClick={() => fileInputRef.current?.click()}
@@ -190,7 +226,7 @@ export default function AdminUploadPage() {
         accept="image/*"
         multiple
         className="hidden"
-        onChange={(e) => e.target.files && uploadFiles(e.target.files)}
+        onChange={(e) => e.target.files && onFilesPicked(e.target.files)}
       />
 
       {uploading && (
@@ -212,10 +248,63 @@ export default function AdminUploadPage() {
         </div>
       )}
 
-      <p className="text-xs text-gray-600 mt-6 leading-relaxed">
-        업로드하면 사진 속 얼굴이 자동 분석되어, 참가자가 셀카로 자신을 검색할 수
-        있게 됩니다. 썸네일은 브라우저에서 자동 생성됩니다.
-      </p>
+      {/* 업로드 확인 모달 */}
+      {pendingFiles.length > 0 && (
+        <div className="fixed inset-0 z-40 bg-black/70 flex items-end sm:items-center justify-center">
+          <div className="w-full max-w-md bg-gray-900 rounded-t-3xl sm:rounded-3xl p-5">
+            <h3 className="font-semibold text-lg mb-1">업로드 확인</h3>
+            <p className="text-sm text-gray-400 mb-4">
+              선택한{" "}
+              <span className="text-white font-semibold">
+                {pendingFiles.length}장
+              </span>
+              을{" "}
+              <span className="text-indigo-300 font-semibold">
+                {selectedEvent?.name}
+              </span>
+              에 올릴까요?
+            </p>
+
+            {/* 미리보기 */}
+            <div className="grid grid-cols-3 gap-1 mb-4">
+              {previews.map((src, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={i}
+                  src={src}
+                  alt=""
+                  className="aspect-square object-cover rounded-lg bg-gray-800"
+                />
+              ))}
+              {pendingFiles.length > 6 && (
+                <div className="aspect-square rounded-lg bg-gray-800 flex items-center justify-center text-sm text-gray-400">
+                  +{pendingFiles.length - 6}
+                </div>
+              )}
+            </div>
+
+            <p className="text-xs text-amber-400/80 mb-4">
+              ⚠️ 행사가 맞는지 다시 한번 확인해주세요. 잘못 올리면 사진 관리에서
+              삭제할 수 있어요.
+            </p>
+
+            <div className="flex gap-2">
+              <button
+                onClick={cancelPending}
+                className="flex-1 py-3 rounded-xl bg-gray-800 text-gray-300 text-sm font-medium"
+              >
+                취소
+              </button>
+              <button
+                onClick={confirmUpload}
+                className="flex-1 py-3 rounded-xl bg-indigo-600 active:bg-indigo-700 text-white text-sm font-medium"
+              >
+                네, 올릴게요
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

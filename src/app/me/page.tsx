@@ -40,7 +40,9 @@ export default function MyPage() {
   const router = useRouter();
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [role, setRole] = useState<"PARTICIPANT" | "PHOTOGRAPHER" | "ADMIN">(
+    "PARTICIPANT"
+  );
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [downloading, setDownloading] = useState(false);
   const [toast, setToast] = useState<ToastData | null>(null);
@@ -57,7 +59,7 @@ export default function MyPage() {
       });
     fetch("/api/me")
       .then((r) => r.json())
-      .then((data) => setIsAdmin(!!data.isAdmin))
+      .then((data) => setRole(data.role ?? "PARTICIPANT"))
       .catch(() => {});
   }, []);
 
@@ -107,21 +109,23 @@ export default function MyPage() {
         )}
       </div>
 
-      {/* 관리자 전용 섹션 */}
-      {isAdmin && (
+      {/* 운영진(관리자/작가) 전용 섹션 */}
+      {(role === "ADMIN" || role === "PHOTOGRAPHER") && (
         <div className="px-4 mt-4">
           <div className="bg-gray-900 rounded-2xl p-4 border border-indigo-900/50">
             <div className="flex items-center gap-2 mb-3">
-              <span className="text-sm font-semibold">🛠 관리자</span>
+              <span className="text-sm font-semibold">
+                {role === "ADMIN" ? "🛠 관리자" : "📸 작가"}
+              </span>
               <span className="text-[10px] text-indigo-300 bg-indigo-900/60 px-2 py-0.5 rounded-full">
-                ADMIN
+                {role}
               </span>
             </div>
             <button
               onClick={() => router.push("/admin")}
               className="w-full bg-indigo-600 active:bg-indigo-700 text-white text-sm font-medium py-3 rounded-xl"
             >
-              관리자 페이지 열기
+              {role === "ADMIN" ? "관리자 페이지 열기" : "내 행사 관리"}
             </button>
           </div>
         </div>

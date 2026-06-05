@@ -8,14 +8,24 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+enum Role {
+  PARTICIPANT
+  PHOTOGRAPHER
+  ADMIN
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String?   @unique
   name          String?
   image         String?
   kakaoId       String?   @unique
+  role          Role      @default(PARTICIPANT)
   createdAt     DateTime  @default(now())
   searches      Search[]
+  ownedEvents   Event[]   @relation("EventOwner")
+  assignedEvents Event[]  @relation("EventPhotographers")
+  uploadedPhotos Photo[]  @relation("PhotoUploader")
 }
 
 model Event {
@@ -26,6 +36,9 @@ model Event {
   thumbnailUrl String?
   coverPhotoId String?  // 관리자가 지정한 대표 사진 (Photo.id). 없으면 첫 사진 사용
   coverPosition String? // 대표 사진의 표시 위치 "x% y%" (object-position). 기본 "50% 50%"
+  ownerId     String?   // 이 행사를 만든 사람 (관리자)
+  owner       User?     @relation("EventOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  photographers User[]  @relation("EventPhotographers") // 이 행사에 업로드 배정된 작가들
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
   photos      Photo[]
@@ -35,6 +48,8 @@ model Photo {
   id            String    @id @default(cuid())
   eventId       String
   event         Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  uploaderId    String?   // 이 사진을 올린 작가/관리자 (본인 사진 삭제 권한용)
+  uploader      User?     @relation("PhotoUploader", fields: [uploaderId], references: [id], onDelete: SetNull)
   s3Key         String    @unique
   thumbnailKey  String
   rekognitionId String?

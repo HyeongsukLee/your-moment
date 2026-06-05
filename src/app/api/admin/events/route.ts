@@ -1,14 +1,19 @@
-import { requireAdmin } from "@/lib/admin";
+import { requireStaff, requireAdmin } from "@/lib/admin";
 import { db } from "@/lib/db";
 
-// 관리자: 순간(행사) 목록 조회 (사진 수 포함)
+// 운영진: 순간(행사) 목록 조회 — 관리자는 전체, 작가는 배정된 행사만
 export async function GET() {
-  const session = await requireAdmin();
+  const session = await requireStaff();
   if (!session) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const isAdmin = session.user.role === "ADMIN";
+
   const events = await db.event.findMany({
+    where: isAdmin
+      ? {}
+      : { photographers: { some: { id: session.user.id } } },
     orderBy: { date: "desc" },
     select: {
       id: true,
@@ -28,7 +33,7 @@ export async function GET() {
   );
 }
 
-// 관리자: 새 순간(행사) 생성
+// 관리자 전용: 새 순간(행사) 생성
 export async function POST(req: Request) {
   const session = await requireAdmin();
   if (!session) {
@@ -46,6 +51,7 @@ export async function POST(req: Request) {
       date: new Date(date),
       description: description || null,
       isActive: true,
+      ownerId: session.user.id,
     },
     select: { id: true, name: true, date: true },
   });

@@ -1,6 +1,10 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectsCommand,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { GetObjectCommand } from "@aws-sdk/client-s3";
 
 export const s3 = new S3Client({
   region: process.env.AWS_REGION!,
@@ -36,4 +40,16 @@ export async function getPresignedUploadUrl(key: string, contentType: string) {
 export async function resolveImageUrl(key: string, expiresIn = 3600) {
   if (key.startsWith("http")) return key;
   return getPresignedDownloadUrl(key, expiresIn);
+}
+
+/** S3 객체 여러 개 삭제 (http URL은 무시) */
+export async function deleteObjects(keys: string[]) {
+  const realKeys = keys.filter((k) => k && !k.startsWith("http"));
+  if (realKeys.length === 0) return;
+  await s3.send(
+    new DeleteObjectsCommand({
+      Bucket: BUCKET,
+      Delete: { Objects: realKeys.map((Key) => ({ Key })) },
+    })
+  );
 }

@@ -1,13 +1,16 @@
-import { requireAdmin } from "@/lib/admin";
+import { requireStaff } from "@/lib/admin";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
 export default async function AdminCoverList() {
-  const session = await requireAdmin();
+  const session = await requireStaff();
   if (!session) redirect("/");
 
+  const isAdmin = session.user.role === "ADMIN";
+
   const events = await db.event.findMany({
+    where: isAdmin ? {} : { ownerId: session.user.id },
     orderBy: { date: "desc" },
     select: {
       id: true,

@@ -1,10 +1,12 @@
-import { requireAdmin } from "@/lib/admin";
+import { requireStaff } from "@/lib/admin";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
 export default async function AdminDashboard() {
-  const session = await requireAdmin();
+  const session = await requireStaff();
   if (!session) redirect("/");
+
+  const isAdmin = session.user.role === "ADMIN";
 
   return (
     <div className="max-w-md mx-auto px-4 py-6">
@@ -12,9 +14,11 @@ export default async function AdminDashboard() {
         <Link href="/me" className="text-gray-400">
           ←
         </Link>
-        <h1 className="text-xl font-bold flex-1">관리자 페이지</h1>
+        <h1 className="text-xl font-bold flex-1">
+          {isAdmin ? "관리자 페이지" : "작가 페이지"}
+        </h1>
         <span className="text-[10px] text-indigo-300 bg-indigo-900/60 px-2 py-0.5 rounded-full">
-          ADMIN
+          {isAdmin ? "ADMIN" : "PHOTOGRAPHER"}
         </span>
       </header>
 
@@ -35,11 +39,25 @@ export default async function AdminDashboard() {
           className="block bg-gray-900 rounded-2xl p-5 active:scale-[0.98] transition-transform"
         >
           <div className="text-2xl mb-2">🖼</div>
-          <h2 className="font-semibold">대표 사진 설정</h2>
+          <h2 className="font-semibold">사진 관리</h2>
           <p className="text-gray-400 text-sm mt-1">
-            순간별로 카드에 보일 대표 사진과 위치를 지정
+            대표 사진 지정 · 잘못 올라간 사진 삭제
           </p>
         </Link>
+
+        {/* 작가 관리는 관리자 전용 */}
+        {isAdmin && (
+          <Link
+            href="/admin/users"
+            className="block bg-gray-900 rounded-2xl p-5 active:scale-[0.98] transition-transform"
+          >
+            <div className="text-2xl mb-2">👥</div>
+            <h2 className="font-semibold">작가 관리</h2>
+            <p className="text-gray-400 text-sm mt-1">
+              유저를 작가로 지정하고 담당 행사를 배정
+            </p>
+          </Link>
+        )}
       </div>
     </div>
   );

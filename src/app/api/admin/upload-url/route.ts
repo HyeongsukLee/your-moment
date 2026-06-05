@@ -1,14 +1,15 @@
-import { requireAdmin } from "@/lib/admin";
+import { canUploadToEvent } from "@/lib/admin";
 import { getPresignedUploadUrl } from "@/lib/s3";
 import { randomUUID } from "crypto";
 
 export async function POST(req: Request) {
-  const session = await requireAdmin();
+  const { eventId, contentType } = await req.json();
+
+  const session = await canUploadToEvent(eventId);
   if (!session) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { eventId, contentType } = await req.json();
   const photoId = randomUUID();
   const s3Key = `events/${eventId}/originals/${photoId}`;
   const thumbnailKey = `events/${eventId}/thumbnails/${photoId}`;

@@ -21,7 +21,7 @@ export async function GET(
     db.photo.findMany({
       where: { eventId },
       orderBy: { createdAt: "asc" },
-      select: { id: true, thumbnailKey: true },
+      select: { id: true, thumbnailKey: true, uploaderId: true },
     }),
   ]);
 
@@ -42,6 +42,7 @@ export async function GET(
       photos.map(async (p) => ({
         id: p.id,
         thumbnailUrl: await resolveImageUrl(p.thumbnailKey),
+        uploaderId: p.uploaderId,
       }))
     ),
   });

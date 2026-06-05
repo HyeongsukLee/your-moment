@@ -1,15 +1,15 @@
-import { requireAdmin } from "@/lib/admin";
+import { canUploadToEvent } from "@/lib/admin";
 import { db } from "@/lib/db";
 
 export async function POST(req: Request) {
-  const session = await requireAdmin();
-  if (!session) {
-    return Response.json({ error: "Forbidden" }, { status: 403 });
-  }
-
   const { eventId, photoId, position } = await req.json();
   if (!eventId || !photoId) {
     return Response.json({ error: "Missing eventId or photoId" }, { status: 400 });
+  }
+
+  const session = await canUploadToEvent(eventId);
+  if (!session) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
   // 해당 사진이 그 행사 소속인지 검증

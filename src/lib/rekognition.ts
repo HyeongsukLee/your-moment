@@ -3,6 +3,7 @@ import {
   SearchFacesByImageCommand,
   IndexFacesCommand,
   CreateCollectionCommand,
+  DeleteFacesCommand,
 } from "@aws-sdk/client-rekognition";
 
 const client = new RekognitionClient({
@@ -40,6 +41,15 @@ export async function indexFace(s3Key: string, externalImageId: string) {
   });
   const result = await client.send(command);
   return result.FaceRecords ?? [];
+}
+
+/** Collection에서 얼굴 삭제 (사진 삭제 시) */
+export async function deleteFaces(faceIds: string[]) {
+  const ids = faceIds.filter(Boolean);
+  if (ids.length === 0) return;
+  await client.send(
+    new DeleteFacesCommand({ CollectionId: COLLECTION_ID, FaceIds: ids })
+  );
 }
 
 export async function searchFacesByImage(imageBytes: Uint8Array) {
