@@ -132,10 +132,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return true;
     },
     // JWT에 DB의 uid/role 적재 (카카오는 kakaoId 우선, 없으면 email)
+    // 성능: 매 요청마다 DB를 조회하지 않는다.
+    //  - 로그인(account 존재) 시 1회 조회해 토큰에 적재
+    //  - 이후엔 토큰 값 재사용, 단 5분 경과 시 role만 가볍게 재조회(승격 반영용)
     async jwt({ token, account }) {
       if (account?.provider === "kakao") {
         token.kakaoId = account.providerAccountId;
       }
+
+      const REFRESH_MS = 5 * 60 * 1000;
+      const isLogin = !!account;
+      const isStale =
+        !token.refreshedAt || Date.now() - token.refreshedAt > REFRESH_MS;
+
+      // 토큰에 uid가 있고, 로그인도 아니고, 아직 신선하면 DB 접근 없이 반환
+      if (token.uid && !isLogin && !isStale) {
+        return token;
+      }
+
       const dbUser = token.kakaoId
         ? await db.user.findUnique({
             where: { kakaoId: token.kakaoId as string },
@@ -151,6 +165,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.uid = dbUser.id;
         token.role = dbUser.role;
         if (dbUser.email) token.email = dbUser.email;
+        token.refreshedAt = Date.now();
       }
       return token;
     },
