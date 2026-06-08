@@ -15,13 +15,14 @@ export type Moment = {
 };
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
-const CAL_ROWS = 6; // 항상 6주로 고정해 달마다 높이가 변하지 않게 함
 
 function ymd(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
     d.getDate()
   ).padStart(2, "0")}`;
 }
+
+type CalCell = { day: number; monthOffset: -1 | 0 | 1 };
 
 export default function MomentBrowser({ moments }: { moments: Moment[] }) {
   const router = useRouter();
@@ -50,12 +51,20 @@ export default function MomentBrowser({ moments }: { moments: Moment[] }) {
   const month = cursor.getMonth();
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const prevMonthDays = new Date(year, month, 0).getDate();
 
-  const cells: (number | null)[] = [
-    ...Array(firstDay).fill(null),
-    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
-  ];
-  while (cells.length < CAL_ROWS * 7) cells.push(null);
+  const cells: CalCell[] = [];
+  // 앞쪽 빈칸 → 전달 날짜
+  for (let i = firstDay - 1; i >= 0; i--)
+    cells.push({ day: prevMonthDays - i, monthOffset: -1 });
+  // 이번달
+  for (let d = 1; d <= daysInMonth; d++)
+    cells.push({ day: d, monthOffset: 0 });
+  // 뒤쪽 빈칸 → 다음달 날짜 (행 맞춤)
+  const calRows = Math.ceil(cells.length / 7);
+  let nextDay = 1;
+  while (cells.length < calRows * 7)
+    cells.push({ day: nextDay++, monthOffset: 1 });
 
   function scrollToMoment(m: Moment) {
     cardRefs.current.get(m.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -88,7 +97,7 @@ export default function MomentBrowser({ moments }: { moments: Moment[] }) {
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      {/* 고정 크기 캘린더 박스 (6주 고정) */}
+      {/* 캘린더 (5~6행 동적, 전달·다음달 날짜 채움) */}
       <div className="shrink-0 bg-gray-900 border border-gray-800 rounded-2xl px-3 py-2 mb-2">
         <div className="flex items-center justify-between mb-1.5">
           <button
@@ -129,42 +138,50 @@ export default function MomentBrowser({ moments }: { moments: Moment[] }) {
           ))}
         </div>
 
-        {/* 6주 고정 그리드 */}
-        <div className="grid grid-cols-7 grid-rows-6 gap-0.5 text-center">
-          {cells.map((day, idx) => {
-            if (day === null) return <div key={`e-${idx}`} className="h-6" />;
-            const key = ymd(new Date(year, month, day));
+        {/* 날짜 그리드: 6행 높이 고정, 5행일 땐 행 높이 늘려서 채움 */}
+        <div style={{ height: `${6 * 24 + 5 * 2}px` }}>
+        <div
+          className="grid grid-cols-7 gap-0.5 text-center h-full"
+          style={{ gridTemplateRows: `repeat(${calRows}, 1fr)` }}
+        >
+          {cells.map(({ day, monthOffset }, idx) => {
+            const cellDate = new Date(year, month + monthOffset, day);
+            const key = ymd(cellDate);
+            const isCurrent = monthOffset === 0;
             const isEvent = byDate.has(key);
             const isToday = key === todayKey;
             const isSelected = key === selectedDate;
             return (
               <button
-                key={key}
-                onClick={() => pickDate(key)}
+                key={`${key}-${idx}`}
+                onClick={() => {
+                  if (monthOffset === -1) setCursor(new Date(year, month - 1, 1));
+                  else if (monthOffset === 1) setCursor(new Date(year, month + 1, 1));
+                  pickDate(key);
+                }}
                 className={`h-6 rounded-md text-xs flex items-center justify-center relative transition-colors ${
                   isSelected
                     ? "bg-indigo-600 text-white font-bold"
-                    : isEvent
+                    : isEvent && isCurrent
                       ? "bg-gray-700 text-white font-medium active:bg-gray-600"
-                      : "text-gray-500 active:bg-gray-800"
+                      : isCurrent
+                        ? "text-gray-500 active:bg-gray-800"
+                        : "text-gray-700 active:bg-gray-800"
                 }`}
               >
                 {day}
-                {/* 점 표시: 선택=흰색, 오늘=빨강, 행사일=회색 */}
-                {(isEvent || isToday) && (
+                {/* 점 표시: 이번달만 */}
+                {isCurrent && (isEvent || isToday) && (
                   <span
                     className={`absolute bottom-0.5 w-1 h-1 rounded-full ${
-                      isSelected
-                        ? "bg-white"
-                        : isToday
-                          ? "bg-red-500"
-                          : "bg-gray-400"
+                      isSelected ? "bg-white" : isToday ? "bg-red-500" : "bg-gray-400"
                     }`}
                   />
                 )}
               </button>
             );
           })}
+        </div>
         </div>
       </div>
 
