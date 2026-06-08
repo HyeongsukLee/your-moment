@@ -89,8 +89,8 @@ export default function MomentBrowser({ moments }: { moments: Moment[] }) {
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* 고정 크기 캘린더 박스 (6주 고정) */}
-      <div className="shrink-0 bg-gray-900 border border-gray-800 rounded-2xl px-3 py-3 mb-3">
-        <div className="flex items-center justify-between mb-2">
+      <div className="shrink-0 bg-gray-900 border border-gray-800 rounded-2xl px-3 py-2 mb-2">
+        <div className="flex items-center justify-between mb-1.5">
           <button
             onClick={() => setCursor(new Date(year, month - 1, 1))}
             className="w-7 h-7 rounded-lg text-gray-400 active:bg-gray-800"
@@ -132,7 +132,7 @@ export default function MomentBrowser({ moments }: { moments: Moment[] }) {
         {/* 6주 고정 그리드 */}
         <div className="grid grid-cols-7 grid-rows-6 gap-0.5 text-center">
           {cells.map((day, idx) => {
-            if (day === null) return <div key={`e-${idx}`} className="h-7" />;
+            if (day === null) return <div key={`e-${idx}`} className="h-6" />;
             const key = ymd(new Date(year, month, day));
             const isEvent = byDate.has(key);
             const isToday = key === todayKey;
@@ -141,7 +141,7 @@ export default function MomentBrowser({ moments }: { moments: Moment[] }) {
               <button
                 key={key}
                 onClick={() => pickDate(key)}
-                className={`h-7 rounded-md text-xs flex items-center justify-center relative transition-colors ${
+                className={`h-6 rounded-md text-xs flex items-center justify-center relative transition-colors ${
                   isSelected
                     ? "bg-indigo-600 text-white font-bold"
                     : isEvent
@@ -181,7 +181,7 @@ export default function MomentBrowser({ moments }: { moments: Moment[] }) {
                 else cardRefs.current.delete(m.id);
               }}
               onClick={() => router.push(`/events/${m.id}`)}
-              className={`relative block w-full text-left rounded-2xl overflow-hidden aspect-[4/3] active:scale-[0.98] transition-all ${
+              className={`relative block w-full text-left rounded-2xl overflow-hidden aspect-[16/10] active:scale-[0.98] transition-all ${
                 isHighlighted ? "ring-2 ring-indigo-500" : ""
               }`}
             >
