@@ -55,18 +55,27 @@ async function getMoments() {
   );
 }
 
+// 한국식 이름(한글 2~4자)만 인사말에 사용, 아니면 "당신"으로 fallback
+function greetingName(name?: string | null) {
+  if (name && /^[가-힣]{2,4}$/.test(name.trim())) return name.trim();
+  return "당신";
+}
+
 export default async function HomePage() {
   const session = await auth();
   if (!session) redirect("/login");
 
   const moments = await getMoments();
+  const displayName = greetingName(session.user?.name);
 
   return (
     <div className="max-w-md mx-auto h-[100dvh] flex flex-col px-4">
       <header className="shrink-0 flex items-center justify-between py-4">
         <div>
           <h1 className="text-2xl font-bold">your moment</h1>
-          <p className="text-gray-400 text-sm mt-0.5">오늘의 순간을 찾아보세요</p>
+          <p className="text-gray-400 text-sm mt-0.5">
+            {displayName}님의 순간을 찾아보세요
+          </p>
         </div>
         <Link
           href="/me"

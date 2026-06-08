@@ -14,27 +14,12 @@ type Group = {
   photos: { id: string; thumbnailUrl: string }[];
 };
 
-// 데모용: 내 사진 5개가 있다고 가정 (실제 검색 결과가 없을 때 미리보기)
-const DEMO_GROUPS: Group[] = [
-  {
-    eventId: "demo-a",
-    eventName: "한강 러닝크루 나이트런",
-    date: "2026-05-28",
-    photos: [1, 2, 3].map((n) => ({
-      id: `demo-a-${n}`,
-      thumbnailUrl: `https://picsum.photos/seed/me-a-${n}/400/400`,
-    })),
-  },
-  {
-    eventId: "demo-b",
-    eventName: "2026 성남 마라톤",
-    date: "2026-05-20",
-    photos: [1, 2].map((n) => ({
-      id: `demo-b-${n}`,
-      thumbnailUrl: `https://picsum.photos/seed/me-b-${n}/400/400`,
-    })),
-  },
-];
+const ROLE_LABEL: Record<"PARTICIPANT" | "PHOTOGRAPHER" | "ADMIN", string> = {
+  PARTICIPANT: "참가자",
+  PHOTOGRAPHER: "작가",
+  ADMIN: "관리자",
+};
+
 
 export default function MyPage() {
   const router = useRouter();
@@ -43,6 +28,8 @@ export default function MyPage() {
   const [role, setRole] = useState<"PARTICIPANT" | "PHOTOGRAPHER" | "ADMIN">(
     "PARTICIPANT"
   );
+  const [name, setName] = useState<string | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [downloading, setDownloading] = useState(false);
   const [toast, setToast] = useState<ToastData | null>(null);
@@ -53,13 +40,16 @@ export default function MyPage() {
       .then((r) => r.json())
       .then((data) => {
         const real: Group[] = data.groups ?? [];
-        // 데모: 아직 찾은 사진이 없으면 내 사진 5개가 있다고 가정해 보여줌
-        setGroups(real.length ? real : DEMO_GROUPS);
+        setGroups(real);
         setLoading(false);
       });
     fetch("/api/me")
       .then((r) => r.json())
-      .then((data) => setRole(data.role ?? "PARTICIPANT"))
+      .then((data) => {
+        setRole(data.role ?? "PARTICIPANT");
+        setName(data.name ?? null);
+        setEmail(data.email ?? null);
+      })
       .catch(() => {});
   }, []);
 
@@ -107,6 +97,26 @@ export default function MyPage() {
         {totalPhotos > 0 && (
           <span className="text-gray-400 text-sm">총 {totalPhotos}장</span>
         )}
+      </div>
+
+      {/* 로그인 사용자 프로필 카드 */}
+      <div className="px-4 mt-4">
+        <div className="bg-gray-900 rounded-2xl p-4 border border-gray-800 flex items-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-indigo-600/80 flex items-center justify-center text-lg font-semibold shrink-0">
+            {name?.trim()?.[0] ?? "?"}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold truncate">{name ?? "이름 없음"}</span>
+              <span className="text-[10px] text-indigo-300 bg-indigo-900/60 px-2 py-0.5 rounded-full shrink-0">
+                {ROLE_LABEL[role]}
+              </span>
+            </div>
+            <p className="text-gray-400 text-xs mt-0.5 truncate">
+              {email ?? "카카오 로그인"}
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* 운영진(관리자/작가) 전용 섹션 */}

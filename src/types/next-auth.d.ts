@@ -18,5 +18,6 @@ declare module "next-auth/jwt" {
   interface JWT {
     uid?: string;
     role?: Role;
+    kakaoId?: string;
   }
 }

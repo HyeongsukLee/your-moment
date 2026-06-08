@@ -45,18 +45,31 @@ export default async function AdminDashboard() {
           </p>
         </Link>
 
-        {/* 작가 관리는 관리자 전용 */}
+        {/* 행사/작가 관리는 관리자 전용 */}
         {isAdmin && (
-          <Link
-            href="/admin/users"
-            className="block bg-gray-900 rounded-2xl p-5 active:scale-[0.98] transition-transform"
-          >
-            <div className="text-2xl mb-2">👥</div>
-            <h2 className="font-semibold">작가 관리</h2>
-            <p className="text-gray-400 text-sm mt-1">
-              유저를 작가로 지정하고 담당 행사를 배정
-            </p>
-          </Link>
+          <>
+            <Link
+              href="/admin/events"
+              className="block bg-gray-900 rounded-2xl p-5 active:scale-[0.98] transition-transform"
+            >
+              <div className="text-2xl mb-2">📅</div>
+              <h2 className="font-semibold">행사 관리</h2>
+              <p className="text-gray-400 text-sm mt-1">
+                행사 생성·삭제·공개 전환
+              </p>
+            </Link>
+
+            <Link
+              href="/admin/users"
+              className="block bg-gray-900 rounded-2xl p-5 active:scale-[0.98] transition-transform"
+            >
+              <div className="text-2xl mb-2">👥</div>
+              <h2 className="font-semibold">작가 관리</h2>
+              <p className="text-gray-400 text-sm mt-1">
+                유저를 작가로 지정하고 담당 행사를 배정
+              </p>
+            </Link>
+          </>
         )}
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Toast, { type ToastData } from "@/components/Toast";
 
 type EventOption = { id: string; name: string; date: string; photoCount: number };
 
@@ -16,6 +17,8 @@ export default function AdminUploadPage() {
   const [newName, setNewName] = useState("");
   const [newDate, setNewDate] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cancelledRef = useRef(false);
+  const [toast, setToast] = useState<ToastData | null>(null);
 
   // 업로드 확인 모달용
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -90,10 +93,12 @@ export default function AdminUploadPage() {
     setPreviews([]);
     setPendingFiles([]);
 
+    cancelledRef.current = false;
     setUploading(true);
     setProgress({ done: 0, total: files.length });
 
     for (let i = 0; i < files.length; i++) {
+      if (cancelledRef.current) break;
       const file = files[i];
       const urlRes = await fetch("/api/admin/upload-url", {
         method: "POST",
@@ -131,7 +136,15 @@ export default function AdminUploadPage() {
     setUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
     await loadEvents();
-    alert(`${files.length}장 업로드 완료!`);
+    if (cancelledRef.current) {
+      cancelledRef.current = false;
+      setToast({
+        message: "업로드를 취소했어요",
+        sub: `${progress.done}장은 저장됐어요`,
+      });
+    } else {
+      alert(`${files.length}장 업로드 완료!`);
+    }
   }
 
   async function makeThumbnail(file: File, maxSize: number): Promise<Blob> {
@@ -245,6 +258,12 @@ export default function AdminUploadPage() {
               }}
             />
           </div>
+          <button
+            onClick={() => { cancelledRef.current = true; }}
+            className="w-full mt-3 py-2.5 rounded-xl bg-gray-800 text-red-400 text-sm font-medium active:bg-gray-700"
+          >
+            업로드 취소
+          </button>
         </div>
       )}
 
@@ -305,6 +324,7 @@ export default function AdminUploadPage() {
           </div>
         </div>
       )}
+      <Toast toast={toast} onClose={() => setToast(null)} />
     </div>
   );
 }

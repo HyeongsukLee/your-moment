@@ -149,9 +149,17 @@ export default function MomentBrowser({ moments }: { moments: Moment[] }) {
                 }`}
               >
                 {day}
-                {/* 오늘 표시: 빨간 점 */}
-                {isToday && (
-                  <span className="absolute bottom-0.5 w-1 h-1 rounded-full bg-red-500" />
+                {/* 점 표시: 선택=흰색, 오늘=빨강, 행사일=회색 */}
+                {(isEvent || isToday) && (
+                  <span
+                    className={`absolute bottom-0.5 w-1 h-1 rounded-full ${
+                      isSelected
+                        ? "bg-white"
+                        : isToday
+                          ? "bg-red-500"
+                          : "bg-gray-400"
+                    }`}
+                  />
                 )}
               </button>
             );
@@ -172,27 +180,32 @@ export default function MomentBrowser({ moments }: { moments: Moment[] }) {
                 else cardRefs.current.delete(m.id);
               }}
               onClick={() => router.push(`/events/${m.id}`)}
-              className={`block w-full text-left bg-gray-900 rounded-2xl overflow-hidden active:scale-[0.98] transition-all ${
+              className={`relative block w-full text-left rounded-2xl overflow-hidden aspect-[4/3] active:scale-[0.98] transition-all ${
                 isHighlighted ? "ring-2 ring-indigo-500" : ""
               }`}
             >
-              <div className="h-32 relative bg-gradient-to-br from-indigo-900 to-purple-900 flex items-center justify-center">
-                {m.coverUrl ? (
-                  <Image
-                    src={m.coverUrl}
-                    alt=""
-                    fill
-                    className="object-cover"
-                    style={{ objectPosition: m.coverPosition ?? "50% 50%" }}
-                    sizes="(max-width: 448px) 100vw, 448px"
-                  />
-                ) : (
+              {/* 배경 이미지 (풀블리드) */}
+              {m.coverUrl ? (
+                <Image
+                  src={m.coverUrl}
+                  alt=""
+                  fill
+                  className="object-cover"
+                  style={{ objectPosition: m.coverPosition ?? "50% 50%" }}
+                  sizes="(max-width: 448px) 100vw, 448px"
+                />
+              ) : (
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-900 to-purple-900 flex items-center justify-center">
                   <span className="text-3xl">📸</span>
-                )}
-              </div>
-              <div className="p-4">
-                <h2 className="font-semibold text-lg">{m.name}</h2>
-                <p className="text-gray-400 text-sm mt-1">
+                </div>
+              )}
+
+              {/* 하단 그라데이션 + 텍스트 오버레이 */}
+              <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/85 via-black/45 to-transparent">
+                <h2 className="font-bold text-lg text-white drop-shadow-sm">
+                  {m.name}
+                </h2>
+                <p className="text-gray-200 text-sm mt-0.5 drop-shadow-sm">
                   {d.toLocaleDateString("ko-KR", {
                     month: "long",
                     day: "numeric",
