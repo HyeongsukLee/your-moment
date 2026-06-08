@@ -24,24 +24,13 @@ export default async function AdminDashboard() {
 
       <div className="space-y-3">
         <Link
-          href="/admin/upload"
-          className="block bg-gray-900 rounded-2xl p-5 active:scale-[0.98] transition-transform"
-        >
-          <div className="text-2xl mb-2">📤</div>
-          <h2 className="font-semibold">사진 업로드</h2>
-          <p className="text-gray-400 text-sm mt-1">
-            순간을 만들고 사진을 일괄 업로드 · 자동 얼굴 분석
-          </p>
-        </Link>
-
-        <Link
-          href="/admin/cover"
+          href="/admin/photos"
           className="block bg-gray-900 rounded-2xl p-5 active:scale-[0.98] transition-transform"
         >
           <div className="text-2xl mb-2">🖼</div>
           <h2 className="font-semibold">사진 관리</h2>
           <p className="text-gray-400 text-sm mt-1">
-            대표 사진 지정 · 잘못 올라간 사진 삭제
+            사진 업로드 · 대표사진 지정 · 사진 삭제
           </p>
         </Link>
 
