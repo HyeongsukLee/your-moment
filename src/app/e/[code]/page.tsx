@@ -42,5 +42,5 @@ export default async function JoinByEventPage({
     data: { members: { connect: { id: session.user.id } } },
   });
 
-  redirect("/");
+  redirect(`/events/${event.id}`);
 }

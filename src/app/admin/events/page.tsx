@@ -62,10 +62,18 @@ export default function AdminEventsPage() {
       router.push("/");
       return;
     }
-    const data: EventItem[] = await eRes.json();
+    let data: EventItem[];
+    try {
+      data = await eRes.json();
+    } catch {
+      setLoading(false);
+      return;
+    }
     setEvents(data);
     setDraft(Object.fromEntries(data.map((e) => [e.id, e.isActive])));
-    if (gRes.ok) setGroups(await gRes.json());
+    if (gRes.ok) {
+      try { setGroups(await gRes.json()); } catch { /* 무시 */ }
+    }
     setLoading(false);
   }, [router]);
 

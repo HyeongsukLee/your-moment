@@ -16,9 +16,13 @@ export async function GET() {
       email: true,
       role: true,
       instagram: true,
-      groups: { select: { id: true } },
+      createdAt: true,
+      groups: { select: { id: true, name: true } },
     },
   });
+
+  const ROLE_ORDER: Record<string, number> = { ADMIN: 0, PHOTOGRAPHER: 1, PARTICIPANT: 2 };
+  users.sort((a, b) => (ROLE_ORDER[a.role] ?? 9) - (ROLE_ORDER[b.role] ?? 9));
 
   return Response.json(
     users.map((u) => ({
@@ -27,6 +31,7 @@ export async function GET() {
       email: u.email,
       role: u.role,
       instagram: u.instagram,
+      createdAt: u.createdAt,
       groupIds: u.groups.map((g) => g.id),
     }))
   );

@@ -33,7 +33,12 @@ export default function AdminGroupsPage() {
       router.push("/");
       return;
     }
-    setGroups(await res.json());
+    try {
+      setGroups(await res.json());
+    } catch {
+      setLoading(false);
+      return;
+    }
     setLoading(false);
   }, [router]);
 

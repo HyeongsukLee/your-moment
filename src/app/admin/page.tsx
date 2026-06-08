@@ -75,9 +75,9 @@ export default async function AdminDashboard() {
               className="block bg-gray-900 rounded-2xl p-5 active:scale-[0.98] transition-transform"
             >
               <div className="text-2xl mb-2">👥</div>
-              <h2 className="font-semibold">작가 관리</h2>
+              <h2 className="font-semibold">회원 관리</h2>
               <p className="text-gray-400 text-sm mt-1">
-                유저를 작가로 지정하고 담당 행사를 배정
+                역할 지정, 그룹 배정, 인스타 아이디 관리
               </p>
             </Link>
           </>

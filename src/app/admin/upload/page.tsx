@@ -31,7 +31,13 @@ export default function AdminUploadPage() {
       router.push("/");
       return;
     }
-    const data = await res.json();
+    let data: EventOption[];
+    try {
+      data = await res.json();
+    } catch {
+      // 개발 환경 핫리로드 등 타이밍 이슈로 응답 body가 빈 경우 무시
+      return;
+    }
     setEvents(data);
     setEventId((prev) => prev || (data[0]?.id ?? ""));
   }, [router]);
