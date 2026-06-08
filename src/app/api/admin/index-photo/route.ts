@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { indexFace, ensureCollection } from "@/lib/rekognition";
 
 export async function POST(req: Request) {
-  const { eventId, photoId, s3Key, thumbnailKey } = await req.json();
+  const { eventId, photoId, s3Key, thumbnailKey, originalFilename } = await req.json();
 
   const session = await canUploadToEvent(eventId);
   if (!session) {
@@ -21,6 +21,7 @@ export async function POST(req: Request) {
       uploaderId: session.user.id,
       s3Key,
       thumbnailKey,
+      originalFilename: originalFilename ?? null,
       rekognitionId: faceRecords[0]?.Face?.FaceId ?? null,
     },
   });

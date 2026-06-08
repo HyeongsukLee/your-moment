@@ -80,7 +80,8 @@ model Photo {
   uploaderId    String?   // 이 사진을 올린 작가/관리자 (본인 사진 삭제 권한용)
   uploader      User?     @relation("PhotoUploader", fields: [uploaderId], references: [id], onDelete: SetNull)
   s3Key         String    @unique
-  thumbnailKey  String
+  thumbnailKey      String
+  originalFilename  String?
   rekognitionId String?
   width         Int?
   height        Int?

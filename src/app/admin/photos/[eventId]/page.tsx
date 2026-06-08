@@ -6,7 +6,7 @@ import Image from "next/image";
 import CoverEditor from "@/components/CoverEditor";
 import Toast, { type ToastData } from "@/components/Toast";
 
-type Photo = { id: string; thumbnailUrl: string; uploaderId: string | null };
+type Photo = { id: string; thumbnailUrl: string; uploaderId: string | null; originalFilename: string | null };
 type EventInfo = { name: string };
 
 export default function AdminPhotosPage() {
@@ -107,7 +107,13 @@ export default function AdminPhotosPage() {
 
   // 업로드
   function onFilesPicked(files: FileList) {
-    const arr = Array.from(files);
+    const existingNames = new Set(photos.map((p) => p.originalFilename).filter(Boolean));
+    const arr = Array.from(files).filter((f) => !existingNames.has(f.name));
+    const skipped = files.length - arr.length;
+    if (skipped > 0) {
+      setToast({ message: `이미 업로드된 ${skipped}장 제외, ${arr.length}장 업로드합니다` });
+    }
+    if (arr.length === 0) return;
     setPendingFiles(arr);
     setPreviews(arr.slice(0, 6).map((f) => URL.createObjectURL(f)));
   }
@@ -144,19 +150,16 @@ export default function AdminPhotosPage() {
 
     let firstPhotoId: string | null = null;
     const hadCover = !!coverId;
+    let doneCount = 0;
 
-    for (let i = 0; i < files.length; i++) {
-      if (cancelledRef.current) break;
-      const file = files[i];
+    async function uploadOne(file: File): Promise<string | null> {
       const urlRes = await fetch("/api/admin/upload-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ eventId, contentType: file.type }),
       });
-      if (!urlRes.ok) break;
-      const { photoId, s3Key, thumbnailKey, uploadUrl, thumbnailUploadUrl } =
-        await urlRes.json();
-      if (i === 0) firstPhotoId = photoId;
+      if (!urlRes.ok) return null;
+      const { photoId, s3Key, thumbnailKey, uploadUrl, thumbnailUploadUrl } = await urlRes.json();
 
       const thumbBlob = await makeThumbnail(file, 400);
       await Promise.all([
@@ -166,9 +169,19 @@ export default function AdminPhotosPage() {
       await fetch("/api/admin/index-photo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId, photoId, s3Key, thumbnailKey }),
+        body: JSON.stringify({ eventId, photoId, s3Key, thumbnailKey, originalFilename: file.name }),
       });
-      setProgress({ done: i + 1, total: files.length });
+      doneCount++;
+      setProgress({ done: doneCount, total: files.length });
+      return photoId;
+    }
+
+    const CONCURRENCY = 5;
+    for (let i = 0; i < files.length; i += CONCURRENCY) {
+      if (cancelledRef.current) break;
+      const batch = files.slice(i, i + CONCURRENCY);
+      const results = await Promise.all(batch.map((f) => uploadOne(f)));
+      if (i === 0) firstPhotoId = results[0] ?? null;
     }
 
     setUploading(false);

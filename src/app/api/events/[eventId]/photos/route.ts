@@ -25,6 +25,7 @@ export async function GET(
         id: true,
         thumbnailKey: true,
         uploaderId: true,
+        originalFilename: true,
         uploader: { select: { name: true, instagram: true } },
       },
     }),
@@ -48,6 +49,7 @@ export async function GET(
         id: p.id,
         thumbnailUrl: await resolveImageUrl(p.thumbnailKey),
         uploaderId: p.uploaderId,
+        originalFilename: p.originalFilename ?? null,
         uploaderName: p.uploader?.name ?? null,
         uploaderInstagram: p.uploader?.instagram ?? null,
       }))
