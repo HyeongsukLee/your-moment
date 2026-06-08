@@ -130,8 +130,8 @@ export default function AdminUsersPage() {
                 </select>
               </div>
 
-              {/* 작가: 인스타 + 그룹 소속 */}
-              {u.role === "PHOTOGRAPHER" && (
+              {/* 작가/관리자: 인스타 + 그룹 소속 */}
+              {(u.role === "PHOTOGRAPHER" || u.role === "ADMIN") && (
                 <div className="border-t border-gray-800 px-4 py-3 space-y-3">
                   {/* 인스타 아이디 */}
                   <div>
@@ -227,7 +227,8 @@ export default function AdminUsersPage() {
 
       <p className="text-xs text-gray-600 mt-6 leading-relaxed">
         역할을 &lsquo;작가&rsquo;로 바꾸고 <b>소속 그룹</b>을 지정하면, 그 그룹의 모든 행사에
-        사진을 올릴 수 있어요. 인스타 아이디는 찾은 사진의 출처로 표시됩니다.
+        사진을 올릴 수 있어요. 관리자·작가 모두 <b>인스타 아이디</b>를 등록하면 찾은 사진의
+        촬영자 출처로 표시됩니다.
       </p>
     </div>
   );
