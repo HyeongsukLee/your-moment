@@ -17,7 +17,15 @@ export async function GET(
     where: { id: searchId, userId: session.user.id },
     include: {
       results: {
-        include: { photo: { select: { id: true, thumbnailKey: true } } },
+        include: {
+          photo: {
+            select: {
+              id: true,
+              thumbnailKey: true,
+              uploader: { select: { name: true, instagram: true } },
+            },
+          },
+        },
         orderBy: { similarity: "desc" },
       },
     },
@@ -33,6 +41,8 @@ export async function GET(
         id: r.photo.id,
         thumbnailUrl: await resolveImageUrl(r.photo.thumbnailKey),
         similarity: r.similarity,
+        uploaderName: r.photo.uploader?.name ?? null,
+        uploaderInstagram: r.photo.uploader?.instagram ?? null,
       }))
     ),
   });

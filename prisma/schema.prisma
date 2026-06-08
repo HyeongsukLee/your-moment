@@ -21,11 +21,37 @@ model User {
   image         String?
   kakaoId       String?   @unique
   role          Role      @default(PARTICIPANT)
+  instagram     String?   // 작가 인스타 아이디 (사진 출처 표시용, @ 제외 핸들)
   createdAt     DateTime  @default(now())
   searches      Search[]
   ownedEvents   Event[]   @relation("EventOwner")
   assignedEvents Event[]  @relation("EventPhotographers")
   uploadedPhotos Photo[]  @relation("PhotoUploader")
+  groups        Group[]   @relation("GroupMembers")
+  notifications Notification[]
+}
+
+model Group {
+  id        String   @id @default(cuid())
+  name      String
+  code      String   @unique // 그룹 참여 링크용 짧은 코드
+  createdAt DateTime @default(now())
+  events    Event[]
+  members   User[]   @relation("GroupMembers")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // PHOTOS_UPLOADED | ROLE_CHANGED | PHOTOS_OF_ME | NEW_EVENT
+  title     String
+  body      String?
+  eventId   String?  // 관련 행사 (탭 시 이동)
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
 }
 
 model Event {
@@ -38,7 +64,10 @@ model Event {
   coverPosition String? // 대표 사진의 표시 위치 "x% y%" (object-position). 기본 "50% 50%"
   ownerId     String?   // 이 행사를 만든 사람 (관리자)
   owner       User?     @relation("EventOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  photographers User[]  @relation("EventPhotographers") // 이 행사에 업로드 배정된 작가들
+  photographers User[]  @relation("EventPhotographers") // 이 행사에 업로드 배정된 작가들 (레거시)
+  groupId     String?   // 이 행사가 속한 그룹 (홈 노출/업로드 권한의 단위)
+  group       Group?    @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  code        String?   @unique // 행사 공유 링크용 코드 (/e/<code> → 그룹 가입)
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
   photos      Photo[]

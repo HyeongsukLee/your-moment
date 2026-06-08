@@ -23,6 +23,11 @@ export async function POST(req: Request) {
     );
   }
 
+  const before = await db.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
+
   const updated = await db.user.update({
     where: { id: userId },
     data: {
@@ -32,6 +37,19 @@ export async function POST(req: Request) {
     },
     select: { id: true, role: true },
   });
+
+  // 알림 ② ROLE_CHANGED: 역할이 실제로 바뀐 경우에만
+  if (before && before.role !== role) {
+    const title =
+      role === "PHOTOGRAPHER"
+        ? "작가로 등록됐어요 · 이제 사진을 올릴 수 있어요"
+        : role === "ADMIN"
+          ? "관리자 권한이 부여됐어요"
+          : "역할이 참가자로 변경됐어요";
+    await db.notification.create({
+      data: { userId, type: "ROLE_CHANGED", title },
+    });
+  }
 
   return Response.json(updated);
 }

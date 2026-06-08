@@ -9,35 +9,33 @@ type UserRow = {
   name: string | null;
   email: string | null;
   role: Role;
-  assignedEventIds: string[];
+  instagram: string | null;
+  groupIds: string[];
 };
-type EventOpt = { id: string; name: string; date: string };
-
-const roleLabel: Record<Role, string> = {
-  PARTICIPANT: "참가자",
-  PHOTOGRAPHER: "작가",
-  ADMIN: "관리자",
-};
+type GroupOpt = { id: string; name: string };
 
 export default function AdminUsersPage() {
   const router = useRouter();
   const [users, setUsers] = useState<UserRow[]>([]);
-  const [events, setEvents] = useState<EventOpt[]>([]);
+  const [groups, setGroups] = useState<GroupOpt[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [instaDraft, setInstaDraft] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
-    const [uRes, eRes] = await Promise.all([
+    const [uRes, gRes] = await Promise.all([
       fetch("/api/admin/users"),
-      fetch("/api/admin/events"),
+      fetch("/api/admin/groups"),
     ]);
     if (uRes.status === 403) {
       alert("관리자만 접근할 수 있습니다");
       router.push("/");
       return;
     }
-    setUsers(await uRes.json());
-    setEvents(await eRes.json());
+    const u: UserRow[] = await uRes.json();
+    setUsers(u);
+    setInstaDraft(Object.fromEntries(u.map((x) => [x.id, x.instagram ?? ""])));
+    if (gRes.ok) setGroups(await gRes.json());
     setLoading(false);
   }, [router]);
 
@@ -59,24 +57,33 @@ export default function AdminUsersPage() {
     await load();
   }
 
-  async function toggleAssign(userId: string, eventId: string, assigned: boolean) {
+  async function saveInstagram(userId: string) {
+    await fetch("/api/admin/users/instagram", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, instagram: instaDraft[userId] ?? "" }),
+    });
+    await load();
+  }
+
+  async function toggleGroup(userId: string, groupId: string, member: boolean) {
     // 낙관적 업데이트
     setUsers((prev) =>
       prev.map((u) =>
         u.id === userId
           ? {
               ...u,
-              assignedEventIds: assigned
-                ? [...u.assignedEventIds, eventId]
-                : u.assignedEventIds.filter((id) => id !== eventId),
+              groupIds: member
+                ? [...u.groupIds, groupId]
+                : u.groupIds.filter((id) => id !== groupId),
             }
           : u
       )
     );
-    await fetch("/api/admin/users/assign", {
+    await fetch("/api/admin/users/groups", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, eventId, assigned }),
+      body: JSON.stringify({ userId, groupId, member }),
     });
   }
 
@@ -102,9 +109,10 @@ export default function AdminUsersPage() {
                   <div className="font-medium truncate">
                     {u.name ?? "이름 없음"}
                   </div>
-                  <div className="text-gray-500 text-xs truncate">{u.email}</div>
+                  <div className="text-gray-500 text-xs truncate">
+                    {u.email ?? "카카오 로그인"}
+                  </div>
                 </div>
-                {/* 역할 선택 */}
                 <select
                   value={u.role}
                   onChange={(e) => setRole(u.id, e.target.value as Role)}
@@ -122,58 +130,89 @@ export default function AdminUsersPage() {
                 </select>
               </div>
 
-              {/* 작가면 행사 배정 영역 */}
+              {/* 작가: 인스타 + 그룹 소속 */}
               {u.role === "PHOTOGRAPHER" && (
-                <div className="border-t border-gray-800 px-4 py-3">
-                  <button
-                    onClick={() =>
-                      setExpanded(expanded === u.id ? null : u.id)
-                    }
-                    className="w-full flex items-center justify-between text-sm text-gray-300"
-                  >
-                    <span>
-                      담당 행사{" "}
-                      <span className="text-indigo-400 font-semibold">
-                        {u.assignedEventIds.length}
-                      </span>
-                      개
-                    </span>
-                    <span className="text-gray-500">
-                      {expanded === u.id ? "▲" : "▼"}
-                    </span>
-                  </button>
-
-                  {expanded === u.id && (
-                    <div className="mt-3 space-y-1.5">
-                      {events.map((ev) => {
-                        const on = u.assignedEventIds.includes(ev.id);
-                        return (
-                          <label
-                            key={ev.id}
-                            className="flex items-center gap-2 text-sm py-1"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={on}
-                              onChange={(e) =>
-                                toggleAssign(u.id, ev.id, e.target.checked)
-                              }
-                              className="w-4 h-4 accent-indigo-500"
-                            />
-                            <span className="flex-1">{ev.name}</span>
-                            <span className="text-gray-600 text-xs">
-                              {new Date(ev.date).toLocaleDateString("ko-KR")}
-                            </span>
-                          </label>
-                        );
-                      })}
-                      {events.length === 0 && (
-                        <p className="text-xs text-gray-600">
-                          행사가 없습니다. 먼저 행사를 만들어주세요.
-                        </p>
-                      )}
+                <div className="border-t border-gray-800 px-4 py-3 space-y-3">
+                  {/* 인스타 아이디 */}
+                  <div>
+                    <label className="text-xs text-gray-400">
+                      인스타 아이디 (사진 출처 표시)
+                    </label>
+                    <div className="flex gap-2 mt-1.5">
+                      <div className="flex-1 flex items-center bg-gray-800 rounded-lg px-2.5">
+                        <span className="text-gray-500 text-sm">@</span>
+                        <input
+                          value={instaDraft[u.id] ?? ""}
+                          onChange={(e) =>
+                            setInstaDraft((p) => ({
+                              ...p,
+                              [u.id]: e.target.value,
+                            }))
+                          }
+                          placeholder="instagram_id"
+                          className="flex-1 bg-transparent py-2 text-sm outline-none"
+                        />
+                      </div>
+                      <button
+                        onClick={() => saveInstagram(u.id)}
+                        disabled={(instaDraft[u.id] ?? "") === (u.instagram ?? "")}
+                        className="text-xs font-medium px-3 rounded-lg bg-indigo-600 active:bg-indigo-700 text-white disabled:opacity-40"
+                      >
+                        저장
+                      </button>
                     </div>
-                  )}
+                  </div>
+
+                  {/* 그룹 소속 (업로드 권한) */}
+                  <div>
+                    <button
+                      onClick={() => setExpanded(expanded === u.id ? null : u.id)}
+                      className="w-full flex items-center justify-between text-sm text-gray-300"
+                    >
+                      <span>
+                        소속 그룹{" "}
+                        <span className="text-indigo-400 font-semibold">
+                          {u.groupIds.length}
+                        </span>
+                        개{" "}
+                        <span className="text-gray-600 text-xs">
+                          (그룹 행사 업로드 가능)
+                        </span>
+                      </span>
+                      <span className="text-gray-500">
+                        {expanded === u.id ? "▲" : "▼"}
+                      </span>
+                    </button>
+
+                    {expanded === u.id && (
+                      <div className="mt-2 space-y-1.5">
+                        {groups.map((g) => {
+                          const on = u.groupIds.includes(g.id);
+                          return (
+                            <label
+                              key={g.id}
+                              className="flex items-center gap-2 text-sm py-1"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={on}
+                                onChange={(e) =>
+                                  toggleGroup(u.id, g.id, e.target.checked)
+                                }
+                                className="w-4 h-4 accent-indigo-500"
+                              />
+                              <span className="flex-1">{g.name}</span>
+                            </label>
+                          );
+                        })}
+                        {groups.length === 0 && (
+                          <p className="text-xs text-gray-600">
+                            그룹이 없습니다. 먼저 그룹을 만들어주세요.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -187,8 +226,8 @@ export default function AdminUsersPage() {
       )}
 
       <p className="text-xs text-gray-600 mt-6 leading-relaxed">
-        역할을 &lsquo;작가&rsquo;로 바꾸면 담당 행사를 배정할 수 있어요. 작가는
-        배정된 행사에만 사진을 올릴 수 있습니다.
+        역할을 &lsquo;작가&rsquo;로 바꾸고 <b>소속 그룹</b>을 지정하면, 그 그룹의 모든 행사에
+        사진을 올릴 수 있어요. 인스타 아이디는 찾은 사진의 출처로 표시됩니다.
       </p>
     </div>
   );

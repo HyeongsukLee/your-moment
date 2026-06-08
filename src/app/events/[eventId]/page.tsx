@@ -8,7 +8,12 @@ import RunningCat from "@/components/RunningCat";
 import Toast, { type ToastData } from "@/components/Toast";
 import { saveImages } from "@/lib/download";
 
-type Photo = { id: string; thumbnailUrl: string };
+type Photo = {
+  id: string;
+  thumbnailUrl: string;
+  uploaderName?: string | null;
+  uploaderInstagram?: string | null;
+};
 type EventInfo = { id: string; name: string; date: string; photoCount: number };
 type PrevSearch = { searchId: string; resultCount: number; photoIds: string[] };
 

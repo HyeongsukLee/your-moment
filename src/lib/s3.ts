@@ -32,6 +32,23 @@ export async function getPresignedUploadUrl(key: string, contentType: string) {
   );
 }
 
+/** 바이트를 S3에 직접 업로드 (셀카 보관 등 서버 측 저장용) */
+export async function putObject(
+  key: string,
+  bytes: Uint8Array,
+  contentType = "image/jpeg"
+) {
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+      Body: bytes,
+      ContentType: contentType,
+    })
+  );
+  return key;
+}
+
 /**
  * 이미지(썸네일/원본) 표시용 URL을 반환.
  * - 시드/데모 데이터처럼 이미 완성된 http URL이면 그대로 통과

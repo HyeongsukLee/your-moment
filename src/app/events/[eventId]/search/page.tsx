@@ -6,7 +6,12 @@ import Image from "next/image";
 import { saveImage, saveImages } from "@/lib/download";
 import Toast, { type ToastData } from "@/components/Toast";
 
-type Photo = { id: string; thumbnailUrl: string };
+type Photo = {
+  id: string;
+  thumbnailUrl: string;
+  uploaderName?: string | null;
+  uploaderInstagram?: string | null;
+};
 
 export default function SearchResultPage() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -267,8 +272,30 @@ export default function SearchResultPage() {
             />
           </div>
 
+          {/* 촬영 작가 크레딧 */}
+          {(viewPhoto.uploaderName || viewPhoto.uploaderInstagram) && (
+            <div className="flex items-center justify-center gap-2 text-sm py-3">
+              <span className="text-white/60">촬영</span>
+              {viewPhoto.uploaderName && (
+                <span className="text-white/90 font-medium">
+                  {viewPhoto.uploaderName}
+                </span>
+              )}
+              {viewPhoto.uploaderInstagram && (
+                <a
+                  href={`https://instagram.com/${viewPhoto.uploaderInstagram}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-indigo-300 active:text-indigo-200"
+                >
+                  @{viewPhoto.uploaderInstagram}
+                </a>
+              )}
+            </div>
+          )}
+
           {/* 여백 */}
-          <div className="h-8" />
+          <div className="h-4" />
         </div>
       )}
 

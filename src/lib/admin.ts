@@ -20,7 +20,7 @@ export async function requireStaff(): Promise<Session | null> {
 /**
  * 특정 행사에 업로드/관리할 수 있는지 검증.
  * - ADMIN: 모든 행사
- * - PHOTOGRAPHER: 관리자가 배정한(photographers) 행사만
+ * - PHOTOGRAPHER: 그 행사가 속한 "그룹"의 멤버이면 업로드 가능 (그룹 단위 권한)
  */
 export async function canUploadToEvent(
   eventId: string
@@ -29,11 +29,14 @@ export async function canUploadToEvent(
   const role = session?.user?.role;
   if (role === "ADMIN") return session;
   if (role === "PHOTOGRAPHER") {
-    const assigned = await db.event.findFirst({
-      where: { id: eventId, photographers: { some: { id: session!.user.id } } },
+    const allowed = await db.event.findFirst({
+      where: {
+        id: eventId,
+        group: { members: { some: { id: session!.user.id } } },
+      },
       select: { id: true },
     });
-    if (assigned) return session;
+    if (allowed) return session;
   }
   return null;
 }

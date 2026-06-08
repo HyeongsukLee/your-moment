@@ -15,7 +15,8 @@ export async function GET() {
       name: true,
       email: true,
       role: true,
-      assignedEvents: { select: { id: true } },
+      instagram: true,
+      groups: { select: { id: true } },
     },
   });
 
@@ -25,7 +26,8 @@ export async function GET() {
       name: u.name,
       email: u.email,
       role: u.role,
-      assignedEventIds: u.assignedEvents.map((e) => e.id),
+      instagram: u.instagram,
+      groupIds: u.groups.map((g) => g.id),
     }))
   );
 }

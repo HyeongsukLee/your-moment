@@ -45,9 +45,20 @@ export default async function AdminDashboard() {
           </p>
         </Link>
 
-        {/* 행사/작가 관리는 관리자 전용 */}
+        {/* 행사/그룹/작가 관리는 관리자 전용 */}
         {isAdmin && (
           <>
+            <Link
+              href="/admin/groups"
+              className="block bg-gray-900 rounded-2xl p-5 active:scale-[0.98] transition-transform"
+            >
+              <div className="text-2xl mb-2">👫</div>
+              <h2 className="font-semibold">그룹 관리</h2>
+              <p className="text-gray-400 text-sm mt-1">
+                그룹 생성 · 참여 링크/QR 공유
+              </p>
+            </Link>
+
             <Link
               href="/admin/events"
               className="block bg-gray-900 rounded-2xl p-5 active:scale-[0.98] transition-transform"
@@ -55,7 +66,7 @@ export default async function AdminDashboard() {
               <div className="text-2xl mb-2">📅</div>
               <h2 className="font-semibold">행사 관리</h2>
               <p className="text-gray-400 text-sm mt-1">
-                행사 생성·삭제·공개 전환
+                행사 생성·삭제·그룹 배정·공유 링크
               </p>
             </Link>
 

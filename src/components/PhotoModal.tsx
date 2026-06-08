@@ -3,7 +3,12 @@
 import { useState } from "react";
 
 type Props = {
-  photo: { id: string; thumbnailUrl: string };
+  photo: {
+    id: string;
+    thumbnailUrl: string;
+    uploaderName?: string | null;
+    uploaderInstagram?: string | null;
+  };
   onClose: () => void;
 };
 
@@ -68,6 +73,32 @@ export default function PhotoModal({ photo, onClose }: Props) {
           className="max-w-full max-h-full object-contain rounded-lg"
         />
       </div>
+
+      {/* 촬영 작가 크레딧 */}
+      {(photo.uploaderName || photo.uploaderInstagram) && (
+        <div
+          className="px-6 pt-4 flex items-center justify-center gap-2 text-sm"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <span className="text-white/60">촬영</span>
+          {photo.uploaderName && (
+            <span className="text-white/90 font-medium">
+              {photo.uploaderName}
+            </span>
+          )}
+          {photo.uploaderInstagram && (
+            <a
+              href={`https://instagram.com/${photo.uploaderInstagram}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-indigo-300 active:text-indigo-200"
+            >
+              @{photo.uploaderInstagram}
+            </a>
+          )}
+        </div>
+      )}
 
       {/* 다운로드 버튼 */}
       <div className="p-6 flex justify-center" onClick={(e) => e.stopPropagation()}>

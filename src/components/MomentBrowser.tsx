@@ -25,6 +25,7 @@ function ymd(d: Date) {
 
 export default function MomentBrowser({ moments }: { moments: Moment[] }) {
   const router = useRouter();
+
   const listRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [highlightId, setHighlightId] = useState<string | null>(null);

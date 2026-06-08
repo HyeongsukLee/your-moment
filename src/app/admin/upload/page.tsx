@@ -135,14 +135,20 @@ export default function AdminUploadPage() {
 
     setUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
+
+    const wasCancelled = cancelledRef.current;
     await loadEvents();
-    if (cancelledRef.current) {
+    if (wasCancelled) {
       cancelledRef.current = false;
       setToast({
         message: "업로드를 취소했어요",
         sub: `${progress.done}장은 저장됐어요`,
       });
     } else {
+      // 업로드 완료 → 그룹 멤버/검색자에게 알림 (재매칭 포함, 세션당 1회)
+      fetch(`/api/admin/events/${eventId}/notify-upload`, {
+        method: "POST",
+      }).catch(() => {});
       alert(`${files.length}장 업로드 완료!`);
     }
   }
@@ -221,7 +227,7 @@ export default function AdminUploadPage() {
 
       {!isAdmin && (
         <p className="text-xs text-gray-500 mb-4 -mt-1">
-          작가는 관리자가 배정한 행사에만 업로드할 수 있어요.
+          작가는 소속 그룹의 행사에만 업로드할 수 있어요.
         </p>
       )}
 

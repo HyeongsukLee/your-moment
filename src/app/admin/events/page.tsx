@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { QRCodeSVG } from "qrcode.react";
 import Toast, { type ToastData } from "@/components/Toast";
 
 type EventItem = {
@@ -10,7 +11,12 @@ type EventItem = {
   date: string;
   isActive: boolean;
   photoCount: number;
+  code: string | null;
+  groupId: string | null;
+  groupName: string | null;
 };
+
+type GroupOpt = { id: string; name: string; code: string };
 
 type SortKey = "dateDesc" | "dateAsc" | "name";
 
@@ -23,30 +29,43 @@ const SORTS: { key: SortKey; label: string }[] = [
 export default function AdminEventsPage() {
   const router = useRouter();
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [groups, setGroups] = useState<GroupOpt[]>([]);
   const [draft, setDraft] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [sort, setSort] = useState<SortKey>("dateDesc");
+  const [groupFilter, setGroupFilter] = useState<string>("all"); // all | <groupId> | none
   const [toast, setToast] = useState<ToastData | null>(null);
+  const [origin, setOrigin] = useState("");
+  const [qrFor, setQrFor] = useState<EventItem | null>(null);
 
   // 새 행사 생성 폼
   const [newName, setNewName] = useState("");
   const [newDate, setNewDate] = useState("");
+  const [newGroupId, setNewGroupId] = useState("");
   const [creating, setCreating] = useState(false);
 
   // 삭제 확인
   const [deleteTarget, setDeleteTarget] = useState<EventItem | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
+
   const loadEvents = useCallback(async () => {
-    const res = await fetch("/api/admin/events?all=1");
-    if (res.status === 403) {
+    const [eRes, gRes] = await Promise.all([
+      fetch("/api/admin/events?all=1"),
+      fetch("/api/admin/groups"),
+    ]);
+    if (eRes.status === 403) {
       router.push("/");
       return;
     }
-    const data: EventItem[] = await res.json();
+    const data: EventItem[] = await eRes.json();
     setEvents(data);
     setDraft(Object.fromEntries(data.map((e) => [e.id, e.isActive])));
+    if (gRes.ok) setGroups(await gRes.json());
     setLoading(false);
   }, [router]);
 
@@ -54,8 +73,12 @@ export default function AdminEventsPage() {
     loadEvents();
   }, [loadEvents]);
 
-  const sorted = useMemo(() => {
-    const arr = [...events];
+  const filtered = useMemo(() => {
+    let arr = [...events];
+    if (groupFilter === "none") arr = arr.filter((e) => !e.groupId);
+    else if (groupFilter !== "all")
+      arr = arr.filter((e) => e.groupId === groupFilter);
+
     if (sort === "name") arr.sort((a, b) => a.name.localeCompare(b.name, "ko"));
     else
       arr.sort((a, b) => {
@@ -63,7 +86,7 @@ export default function AdminEventsPage() {
         return sort === "dateAsc" ? t : -t;
       });
     return arr;
-  }, [events, sort]);
+  }, [events, sort, groupFilter]);
 
   const dirty = useMemo(
     () => events.some((e) => draft[e.id] !== e.isActive),
@@ -103,16 +126,42 @@ export default function AdminEventsPage() {
     }
   }
 
+  // 그룹 변경은 즉시 저장 (스테이징 아님)
+  async function changeGroup(eventId: string, groupId: string) {
+    const gid = groupId || null;
+    setEvents((prev) =>
+      prev.map((e) =>
+        e.id === eventId
+          ? {
+              ...e,
+              groupId: gid,
+              groupName: groups.find((g) => g.id === gid)?.name ?? null,
+            }
+          : e
+      )
+    );
+    const res = await fetch(`/api/admin/events/${eventId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ groupId: gid }),
+    });
+    if (!res.ok) setToast({ message: "그룹 변경 실패" });
+  }
+
   async function createEvent() {
     if (!newName.trim() || !newDate) {
       setToast({ message: "이름과 날짜를 입력하세요" });
+      return;
+    }
+    if (!newGroupId) {
+      setToast({ message: "그룹을 선택하세요" });
       return;
     }
     setCreating(true);
     const res = await fetch("/api/admin/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newName, date: newDate }),
+      body: JSON.stringify({ name: newName, date: newDate, groupId: newGroupId }),
     });
     setCreating(false);
     if (!res.ok) {
@@ -121,6 +170,7 @@ export default function AdminEventsPage() {
     }
     setNewName("");
     setNewDate("");
+    setNewGroupId("");
     await loadEvents();
     setToast({ message: "행사를 만들었어요" });
   }
@@ -139,6 +189,17 @@ export default function AdminEventsPage() {
     }
     await loadEvents();
     setToast({ message: "행사를 삭제했어요" });
+  }
+
+  async function copyEventLink(e: EventItem) {
+    if (!e.code) return;
+    const url = `${origin}/e/${e.code}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setToast({ message: "행사 공유 링크를 복사했어요", sub: url });
+    } catch {
+      setToast({ message: "복사 실패", sub: url });
+    }
   }
 
   return (
@@ -168,6 +229,23 @@ export default function AdminEventsPage() {
             onChange={(e) => setNewDate(e.target.value)}
             className="w-full bg-gray-800 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 ring-indigo-500"
           />
+          <select
+            value={newGroupId}
+            onChange={(e) => setNewGroupId(e.target.value)}
+            className="w-full bg-gray-800 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 ring-indigo-500"
+          >
+            <option value="">그룹 선택 (필수)</option>
+            {groups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+          {groups.length === 0 && (
+            <p className="text-[11px] text-amber-400/90">
+              먼저 &lsquo;그룹 관리&rsquo;에서 그룹을 만들어 주세요.
+            </p>
+          )}
           <button
             onClick={createEvent}
             disabled={creating}
@@ -177,6 +255,25 @@ export default function AdminEventsPage() {
           </button>
         </div>
       </details>
+
+      {/* 그룹 필터 */}
+      <div className="flex items-center gap-1.5 mb-2 overflow-x-auto pb-1">
+        <FilterChip active={groupFilter === "all"} onClick={() => setGroupFilter("all")}>
+          전체
+        </FilterChip>
+        {groups.map((g) => (
+          <FilterChip
+            key={g.id}
+            active={groupFilter === g.id}
+            onClick={() => setGroupFilter(g.id)}
+          >
+            {g.name}
+          </FilterChip>
+        ))}
+        <FilterChip active={groupFilter === "none"} onClick={() => setGroupFilter("none")}>
+          미지정
+        </FilterChip>
+      </div>
 
       {/* 정렬 컨트롤 */}
       <div className="flex items-center gap-1.5 mb-3">
@@ -198,22 +295,13 @@ export default function AdminEventsPage() {
       {loading ? (
         <div className="text-center text-gray-500 py-16">불러오는 중...</div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-gray-800">
-          {/* 헤더 행 */}
-          <div className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-2 bg-gray-900 text-[11px] text-gray-500 font-medium">
-            <span>행사명 / 날짜</span>
-            <span className="w-12 text-center">공개</span>
-            <span className="w-8 text-center">삭제</span>
-          </div>
-          <div className="divide-y divide-gray-800">
-            {sorted.map((e) => {
-              const on = draft[e.id] ?? e.isActive;
-              return (
-                <div
-                  key={e.id}
-                  className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-3 items-center bg-gray-950"
-                >
-                  <div className="min-w-0">
+        <div className="space-y-2">
+          {filtered.map((e) => {
+            const on = draft[e.id] ?? e.isActive;
+            return (
+              <div key={e.id} className="bg-gray-900 rounded-xl p-3">
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
                     <div
                       className={`font-medium text-sm truncate ${
                         !on ? "text-gray-500" : ""
@@ -247,9 +335,48 @@ export default function AdminEventsPage() {
                     🗑
                   </button>
                 </div>
-              );
-            })}
-          </div>
+
+                {/* 그룹 선택 + 공유 링크 */}
+                <div className="flex items-center gap-2 mt-2.5">
+                  <select
+                    value={e.groupId ?? ""}
+                    onChange={(ev) => changeGroup(e.id, ev.target.value)}
+                    className={`flex-1 min-w-0 text-xs rounded-lg px-2 py-2 outline-none ${
+                      e.groupId
+                        ? "bg-gray-800 text-gray-200"
+                        : "bg-amber-950/60 text-amber-300"
+                    }`}
+                  >
+                    <option value="">그룹 미지정</option>
+                    {groups.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => copyEventLink(e)}
+                    disabled={!e.code}
+                    className="text-xs font-medium px-3 py-2 rounded-lg bg-gray-800 active:bg-gray-700 text-gray-200 disabled:opacity-40 shrink-0"
+                  >
+                    링크
+                  </button>
+                  <button
+                    onClick={() => setQrFor(e)}
+                    disabled={!e.code}
+                    className="text-xs font-medium px-3 py-2 rounded-lg bg-gray-800 active:bg-gray-700 text-gray-200 disabled:opacity-40 shrink-0"
+                  >
+                    QR
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+          {filtered.length === 0 && (
+            <p className="text-center text-gray-600 text-sm py-12">
+              해당 조건의 행사가 없어요
+            </p>
+          )}
         </div>
       )}
 
@@ -268,7 +395,7 @@ export default function AdminEventsPage() {
             disabled={saving}
             className="flex-1 py-3 rounded-xl bg-indigo-600 active:bg-indigo-700 text-white text-sm font-semibold disabled:opacity-60"
           >
-            {saving ? "저장 중..." : "변경사항 저장"}
+            {saving ? "저장 중..." : "공개 설정 저장"}
           </button>
         </div>
       )}
@@ -308,7 +435,54 @@ export default function AdminEventsPage() {
         </div>
       )}
 
+      {/* 행사 QR 모달 */}
+      {qrFor && qrFor.code && (
+        <div
+          className="fixed inset-0 z-40 bg-black/80 flex items-center justify-center p-6"
+          onClick={() => setQrFor(null)}
+        >
+          <div
+            className="bg-white rounded-3xl p-6 flex flex-col items-center gap-4"
+            onClick={(ev) => ev.stopPropagation()}
+          >
+            <QRCodeSVG value={`${origin}/e/${qrFor.code}`} size={220} />
+            <div className="text-center">
+              <div className="text-black font-bold">{qrFor.name}</div>
+              <div className="text-gray-500 text-xs mt-0.5">
+                스캔하면 {qrFor.groupName ?? "그룹"} 행사가 열려요
+              </div>
+            </div>
+            <button onClick={() => setQrFor(null)} className="text-gray-500 text-sm">
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
+
       <Toast toast={toast} onClose={() => setToast(null)} />
     </div>
+  );
+}
+
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`text-xs px-3 py-1.5 rounded-full border whitespace-nowrap transition-colors ${
+        active
+          ? "bg-gray-200 border-gray-200 text-gray-900"
+          : "border-gray-700 text-gray-400 active:bg-gray-800"
+      }`}
+    >
+      {children}
+    </button>
   );
 }

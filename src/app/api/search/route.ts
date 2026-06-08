@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { searchFacesByImage } from "@/lib/rekognition";
-import { resolveImageUrl } from "@/lib/s3";
+import { resolveImageUrl, putObject } from "@/lib/s3";
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -20,7 +20,21 @@ export async function POST(req: Request) {
   const imageBytes = new Uint8Array(await selfie.arrayBuffer());
   const faceMatches = await searchFacesByImage(imageBytes);
 
+  // 셀카를 S3에 보관 → 이후 사진 추가 시 재매칭(PHOTOS_OF_ME)에 사용
+  const selfieKey = `selfies/${session.user.id}/${Date.now()}.jpg`;
+  let storedSelfieKey = "temp";
+  try {
+    await putObject(selfieKey, imageBytes, selfie.type || "image/jpeg");
+    storedSelfieKey = selfieKey;
+  } catch {
+    // 보관 실패해도 검색 자체는 진행
+  }
+
   if (faceMatches.length === 0) {
+    // 매칭이 없어도 셀카는 기록(이후 업로드로 매칭될 수 있음)
+    await db.search.create({
+      data: { userId: session.user.id, eventId, selfieKey: storedSelfieKey },
+    });
     return Response.json({ results: [] });
   }
 
@@ -39,7 +53,7 @@ export async function POST(req: Request) {
     data: {
       userId: session.user.id,
       eventId,
-      selfieKey: "temp",
+      selfieKey: storedSelfieKey,
       results: {
         create: photos.map((p) => ({
           photoId: p.id,

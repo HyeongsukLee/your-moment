@@ -4,10 +4,14 @@ import { resolveImageUrl } from "@/lib/s3";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import MomentBrowser from "@/components/MomentBrowser";
+import NotificationBell from "@/components/NotificationBell";
 
-async function getMoments() {
+async function getMoments(userId: string, isAdmin: boolean) {
   const events = await db.event.findMany({
-    where: { isActive: true },
+    // 관리자는 전체, 그 외에는 자신이 가입한 그룹의 행사만 노출.
+    where: isAdmin
+      ? { isActive: true }
+      : { isActive: true, group: { members: { some: { id: userId } } } },
     orderBy: { date: "desc" },
     select: {
       id: true,
@@ -65,7 +69,8 @@ export default async function HomePage() {
   const session = await auth();
   if (!session) redirect("/login");
 
-  const moments = await getMoments();
+  const isAdmin = session.user?.role === "ADMIN";
+  const moments = await getMoments(session.user.id, isAdmin);
   const displayName = greetingName(session.user?.name);
 
   return (
@@ -77,16 +82,30 @@ export default async function HomePage() {
             {displayName}님의 순간을 찾아보세요
           </p>
         </div>
-        <Link
-          href="/me"
-          className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center active:scale-95 transition-transform"
-          aria-label="마이페이지"
-        >
-          <span className="text-lg">👤</span>
-        </Link>
+        <div className="flex items-center gap-2">
+          <NotificationBell />
+          <Link
+            href="/me"
+            className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center active:scale-95 transition-transform"
+            aria-label="마이페이지"
+          >
+            <span className="text-lg">👤</span>
+          </Link>
+        </div>
       </header>
 
-      <MomentBrowser moments={moments} />
+      {moments.length === 0 ? (
+        <div className="flex flex-col flex-1 min-h-0 items-center justify-center text-center px-8 gap-3">
+          <span className="text-5xl">📭</span>
+          <p className="text-gray-300 font-medium">아직 참여한 행사가 없어요</p>
+          <p className="text-gray-500 text-sm leading-relaxed">
+            주최 측에서 받은 <b className="text-gray-300">참여 링크</b>로 입장하면
+            <br />그 행사의 사진을 볼 수 있어요.
+          </p>
+        </div>
+      ) : (
+        <MomentBrowser moments={moments} />
+      )}
     </div>
   );
 }

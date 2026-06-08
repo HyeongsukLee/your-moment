@@ -62,3 +62,17 @@ export async function searchFacesByImage(imageBytes: Uint8Array) {
   const result = await client.send(command);
   return result.FaceMatches ?? [];
 }
+
+/** S3에 보관된 셀카로 재검색 (사진 추가 후 PHOTOS_OF_ME 재매칭용) */
+export async function searchFacesByS3(s3Key: string) {
+  const command = new SearchFacesByImageCommand({
+    CollectionId: COLLECTION_ID,
+    Image: {
+      S3Object: { Bucket: process.env.AWS_S3_BUCKET!, Name: s3Key },
+    },
+    MaxFaces: 100,
+    FaceMatchThreshold: 80,
+  });
+  const result = await client.send(command);
+  return result.FaceMatches ?? [];
+}

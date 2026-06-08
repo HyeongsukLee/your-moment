@@ -15,14 +15,22 @@ export async function PATCH(
   const { eventId } = await params;
   const body = await req.json();
 
-  if (typeof body.isActive !== "boolean") {
-    return Response.json({ error: "isActive(boolean) 필요" }, { status: 400 });
+  // isActive 토글 또는 groupId 변경 (둘 중 최소 하나)
+  const data: { isActive?: boolean; groupId?: string | null } = {};
+  if (typeof body.isActive === "boolean") data.isActive = body.isActive;
+  if ("groupId" in body) data.groupId = body.groupId || null;
+
+  if (Object.keys(data).length === 0) {
+    return Response.json(
+      { error: "isActive(boolean) 또는 groupId 필요" },
+      { status: 400 }
+    );
   }
 
   const event = await db.event.update({
     where: { id: eventId },
-    data: { isActive: body.isActive },
-    select: { id: true, name: true, isActive: true },
+    data,
+    select: { id: true, name: true, isActive: true, groupId: true },
   });
 
   return Response.json(event);
