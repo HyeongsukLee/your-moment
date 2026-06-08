@@ -16,10 +16,16 @@ export const s3 = new S3Client({
 
 const BUCKET = process.env.AWS_S3_BUCKET!;
 
-export async function getPresignedDownloadUrl(key: string, expiresIn = 3600) {
+export async function getPresignedDownloadUrl(key: string, expiresIn = 3600, filename?: string) {
   return getSignedUrl(
     s3,
-    new GetObjectCommand({ Bucket: BUCKET, Key: key }),
+    new GetObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+      ...(filename && {
+        ResponseContentDisposition: `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
+      }),
+    }),
     { expiresIn }
   );
 }

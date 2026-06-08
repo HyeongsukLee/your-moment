@@ -15,13 +15,13 @@ export async function POST(req: Request) {
 
   const photos = await db.photo.findMany({
     where: { id: { in: photoIds } },
-    select: { id: true, s3Key: true },
+    select: { id: true, s3Key: true, originalFilename: true },
   });
 
   const urls = await Promise.all(
     photos.map(async (p) => ({
       id: p.id,
-      url: await getPresignedDownloadUrl(p.s3Key),
+      url: await getPresignedDownloadUrl(p.s3Key, 3600, p.originalFilename ?? undefined),
     }))
   );
 
