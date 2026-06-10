@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { saveImage } from "@/lib/download";
 
 type Props = {
   photo: {
@@ -26,12 +27,7 @@ export default function PhotoModal({ photo, onClose }: Props) {
       const { urls } = await res.json();
       const url = urls?.[0]?.url;
       if (url) {
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
+        await saveImage(url, `your-moment-${photo.id}.jpg`);
       }
     } finally {
       setDownloading(false);
