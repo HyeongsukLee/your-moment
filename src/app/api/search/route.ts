@@ -18,6 +18,43 @@ export async function POST(req: Request) {
   }
 
   const imageBytes = new Uint8Array(await selfie.arrayBuffer());
+
+  // 캐시 체크: 마지막 검색 이후 새 사진이 없으면 Rekognition 미호출
+  const [latestSearch, latestPhoto] = await Promise.all([
+    db.search.findFirst({
+      where: { userId: session.user.id, eventId, NOT: { selfieKey: "temp" } },
+      orderBy: { createdAt: "desc" },
+      include: { results: { select: { photoId: true, similarity: true } } },
+    }),
+    db.photo.findFirst({
+      where: { eventId },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    }),
+  ]);
+
+  const isCacheHit =
+    latestSearch &&
+    latestSearch.results.length > 0 &&
+    (!latestPhoto || latestPhoto.createdAt <= latestSearch.createdAt);
+
+  if (isCacheHit) {
+    const cachedPhotos = await db.photo.findMany({
+      where: { id: { in: latestSearch.results.map((r) => r.photoId) } },
+      select: { id: true, thumbnailKey: true },
+    });
+    return Response.json({
+      searchId: latestSearch.id,
+      cached: true,
+      results: await Promise.all(
+        cachedPhotos.map(async (p) => ({
+          id: p.id,
+          thumbnailUrl: await resolveImageUrl(p.thumbnailKey),
+        }))
+      ),
+    });
+  }
+
   const faceMatches = await searchFacesByImage(imageBytes);
 
   // 셀카를 S3에 보관 → 이후 사진 추가 시 재매칭(PHOTOS_OF_ME)에 사용
