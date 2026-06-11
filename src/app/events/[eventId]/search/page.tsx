@@ -84,14 +84,25 @@ export default function SearchResultPage() {
     if (ids.length === 0) return;
     setDownloading(true);
     try {
-      const files = await Promise.all(
-        ids.map((id) => {
-          if (!prefetchMap.current.has(id)) prefetchPhoto(id);
-          return prefetchMap.current.get(id)!;
-        })
-      );
+      // 캐시 미스 ID들을 1번의 배치 API 호출로 처리
+      const uncached = ids.filter((id) => !prefetchMap.current.has(id));
+      if (uncached.length > 0) {
+        const res = await fetch("/api/download", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ photoIds: uncached }),
+        });
+        const { urls } = await res.json();
+        // presigned URL → blob 병렬 fetch 시작
+        urls.forEach(({ id, url }: { id: string; url: string }) => {
+          prefetchMap.current.set(id, fetchBlobFile(url, id));
+        });
+      }
 
-      setDownloading(false); // 스피너 해제 후 share
+      // 전체 준비 대기 (캐시된 것 + 방금 시작한 것)
+      const files = await Promise.all(ids.map((id) => prefetchMap.current.get(id)!));
+
+      setDownloading(false); // 배너 숨기고 share 호출
 
       if (canNativeShare(files)) {
         await navigator.share({ files, title: "your moment" });
