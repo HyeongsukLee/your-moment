@@ -68,7 +68,9 @@ function canNativeShare(files: File[]): boolean {
     navigator.maxTouchPoints > 1 &&
     !/Chrome/.test(ua);
 
-  if (!isIphone && !isIpadSafari && !isIpadDesktopSafari) return false;
+  const isAndroid = /Android/.test(ua);
+
+  if (!isIphone && !isIpadSafari && !isIpadDesktopSafari && !isAndroid) return false;
   return (
     typeof navigator.share === "function" &&
     typeof navigator.canShare === "function" &&
