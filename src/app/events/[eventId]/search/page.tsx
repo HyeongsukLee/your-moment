@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { saveImage, saveImages } from "@/lib/download";
@@ -34,6 +34,7 @@ export default function SearchResultPage() {
   const [dlProgress, setDlProgress] = useState({ done: 0, total: 0 });
   const [toast, setToast] = useState<ToastData | null>(null);
   const closeToast = useCallback(() => setToast(null), []);
+  const cancelledRef = useRef(false);
 
   useEffect(() => {
     if (!searchId) return;
@@ -60,8 +61,10 @@ export default function SearchResultPage() {
     setSelected(new Set());
   }
 
-  /* presigned URL 취득 후 저장 */
-  async function downloadPhotos(ids: string[]) {
+  /* presigned URL 취득 후 공유/저장 */
+  async function sharePhotos(ids: string[]) {
+    if (ids.length === 0) return;
+    cancelledRef.current = false;
     setDownloading(true);
     setDlProgress({ done: 0, total: ids.length });
     try {
@@ -71,13 +74,18 @@ export default function SearchResultPage() {
         body: JSON.stringify({ photoIds: ids }),
       });
       const { urls } = await res.json();
-      await saveImages(urls, (done, total) => setDlProgress({ done, total }));
+      await saveImages(urls, (done, total) => {
+        if (cancelledRef.current) throw new Error("cancelled");
+        setDlProgress({ done, total });
+      });
       cancelSelect();
       setToast({
         message: `${ids.length}장 저장 완료`,
         sub: "사진 앱에서 확인하세요",
         showGallery: true,
       });
+    } catch (e: unknown) {
+      if (e instanceof Error && e.message !== "cancelled") throw e;
     } finally {
       setDownloading(false);
     }
@@ -111,35 +119,50 @@ export default function SearchResultPage() {
     <div className="max-w-md mx-auto h-[100dvh] flex flex-col">
       {/* 헤더 */}
       <div className="shrink-0 px-4 py-4 flex items-center gap-2 border-b border-gray-900">
-        <button onClick={() => router.back()} className="text-gray-400 mr-1">
-          ←
-        </button>
-        <h1 className="font-semibold text-base flex-1">
-          {selectMode
-            ? selected.size > 0
-              ? `${selected.size}장 선택됨`
-              : "사진 선택"
-            : `내 사진 ${photos.length}장`}
-        </h1>
-
-        {!selectMode ? (
-          /* 일반 모드: 선택 버튼 */
-          photos.length > 0 && (
-            <button
-              onClick={() => setSelectMode(true)}
-              className="text-indigo-400 text-sm font-medium px-3 py-1.5 rounded-xl bg-indigo-950/60"
-            >
-              선택
+        {selectMode ? (
+          <>
+            <button onClick={cancelSelect} className="text-gray-400 text-sm">
+              취소
             </button>
-          )
+            <span className="flex-1 font-semibold text-sm text-center">
+              {selected.size > 0 ? `${selected.size}장 선택됨` : "사진 선택"}
+            </span>
+            {/* 공유 아이콘 버튼 */}
+            <button
+              onClick={() => sharePhotos([...selected])}
+              disabled={selected.size === 0 || downloading}
+              className="w-9 h-9 flex items-center justify-center rounded-full active:bg-white/10 disabled:opacity-30 transition-opacity"
+              aria-label="공유 및 저장"
+            >
+              {downloading ? (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="animate-spin">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" strokeOpacity="0.3"/>
+                  <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              ) : (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <path d="M8.59 13.51L15.42 17.49M15.41 6.51L8.59 10.49M21 5C21 6.65685 19.6569 8 18 8C16.3431 8 15 6.65685 15 5C15 3.34315 16.3431 2 18 2C19.6569 2 21 3.34315 21 5ZM9 12C9 13.6569 7.65685 15 6 15C4.34315 15 3 13.6569 3 12C3 10.3431 4.34315 9 6 9C7.65685 9 9 10.3431 9 12ZM21 19C21 20.6569 19.6569 22 18 22C16.3431 22 15 20.6569 15 19C15 17.3431 16.3431 16 18 16C19.6569 16 21 17.3431 21 19Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                </svg>
+              )}
+            </button>
+          </>
         ) : (
-          /* 선택 모드: 완료 */
-          <button
-            onClick={cancelSelect}
-            className="text-sm text-indigo-400 font-medium"
-          >
-            완료
-          </button>
+          <>
+            <button onClick={() => router.back()} className="text-gray-400 mr-1">
+              ←
+            </button>
+            <h1 className="font-semibold text-base flex-1">
+              내 사진 {photos.length}장
+            </h1>
+            {photos.length > 0 && (
+              <button
+                onClick={() => setSelectMode(true)}
+                className="text-indigo-400 text-sm font-medium px-3 py-1.5 rounded-xl bg-indigo-950/60"
+              >
+                선택
+              </button>
+            )}
+          </>
         )}
       </div>
 
@@ -194,25 +217,15 @@ export default function SearchResultPage() {
         )}
       </div>
 
-      {/* 하단 다운로드 버튼 */}
-      {photos.length > 0 && (
+      {/* 하단: 일반 모드에서만 전체 저장 버튼 (선택 모드는 헤더 공유 아이콘 사용) */}
+      {!selectMode && photos.length > 0 && (
         <div className="shrink-0 p-4 border-t border-gray-900 bg-gray-950">
           <button
-            onClick={() =>
-              downloadPhotos(
-                selectMode && selected.size > 0
-                  ? [...selected]
-                  : photos.map((p) => p.id)
-              )
-            }
-            disabled={downloading || (selectMode && selected.size === 0)}
+            onClick={() => sharePhotos(photos.map((p) => p.id))}
+            disabled={downloading}
             className="w-full bg-indigo-600 active:bg-indigo-700 text-white font-semibold py-4 rounded-2xl text-base disabled:opacity-50 transition-colors shadow-lg shadow-indigo-900/40"
           >
-            {downloading
-              ? `저장 중... (${dlProgress.done}/${dlProgress.total})`
-              : selectMode && selected.size > 0
-                ? `선택한 ${selected.size}장 다운로드`
-                : `전체 ${photos.length}장 다운로드`}
+            전체 {photos.length}장 저장
           </button>
         </div>
       )}
@@ -280,6 +293,30 @@ export default function SearchResultPage() {
 
           {/* 여백 */}
           <div className="h-4" />
+        </div>
+      )}
+
+      {/* 다운로드 진행률 오버레이 */}
+      {downloading && (
+        <div className="fixed inset-0 z-50 bg-gray-950/90 backdrop-blur-sm flex flex-col items-center justify-center gap-6 px-8">
+          <div className="w-full max-w-xs bg-gray-900 rounded-3xl p-6 flex flex-col items-center gap-5 shadow-2xl">
+            <p className="text-base font-semibold">사진 준비 중...</p>
+            <p className="text-gray-400 text-sm -mt-3">
+              {dlProgress.done} / {dlProgress.total}장
+            </p>
+            <div className="w-full h-2 rounded-full bg-gray-800 overflow-hidden">
+              <div
+                className="h-full bg-indigo-500 rounded-full transition-all duration-300"
+                style={{ width: dlProgress.total > 0 ? `${(dlProgress.done / dlProgress.total) * 100}%` : "0%" }}
+              />
+            </div>
+            <button
+              onClick={() => { cancelledRef.current = true; }}
+              className="text-sm text-gray-400 active:text-white py-1 px-4"
+            >
+              취소
+            </button>
+          </div>
         </div>
       )}
 
