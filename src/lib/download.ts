@@ -56,8 +56,11 @@ export async function saveImages(
 // ── 내부 유틸 ───────────────────────────────────────
 
 function canNativeShare(files: File[]): boolean {
+  if (typeof navigator === "undefined") return false;
+  // iPad는 Web Share 공유시트에 "사진에 저장"이 없으므로 제외 — iPhone만 허용
+  const isIphone = /iPhone/.test(navigator.userAgent);
+  if (!isIphone) return false;
   return (
-    typeof navigator !== "undefined" &&
     typeof navigator.share === "function" &&
     typeof navigator.canShare === "function" &&
     navigator.canShare({ files })
