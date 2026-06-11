@@ -251,8 +251,8 @@ export default function EventGalleryPage() {
           </button>
         )}
 
-        <div className="p-4">
-          {/* 항상 내 사진 찾기 버튼 표시 */}
+        {!selectMode && <div className="p-4">
+          {/* 일반 모드에서만 내 사진 찾기 버튼 표시 */}
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={searching}
@@ -271,7 +271,7 @@ export default function EventGalleryPage() {
               if (file) handleSelfie(file);
             }}
           />
-        </div>
+        </div>}
       </div>
 
       {/* 사진 확대 모달 */}
