@@ -54,12 +54,6 @@ export default function SearchResultPage() {
     });
   }
 
-  /* 전체 선택 / 전체 해제 */
-  function toggleAll() {
-    if (selected.size === photos.length) setSelected(new Set());
-    else setSelected(new Set(photos.map((p) => p.id)));
-  }
-
   /* 선택 모드 취소 */
   function cancelSelect() {
     setSelectMode(false);
@@ -113,8 +107,6 @@ export default function SearchResultPage() {
     }
   }
 
-  const allSelected = selected.size === photos.length && photos.length > 0;
-
   return (
     <div className="max-w-md mx-auto h-[100dvh] flex flex-col">
       {/* 헤더 */}
@@ -141,21 +133,13 @@ export default function SearchResultPage() {
             </button>
           )
         ) : (
-          /* 선택 모드: 전체선택 + 완료 */
-          <div className="flex items-center gap-2">
-            <button
-              onClick={toggleAll}
-              className="text-sm text-gray-300 font-medium"
-            >
-              {allSelected ? "전체 해제" : "전체 선택"}
-            </button>
-            <button
-              onClick={cancelSelect}
-              className="text-sm text-indigo-400 font-medium"
-            >
-              완료
-            </button>
-          </div>
+          /* 선택 모드: 완료 */
+          <button
+            onClick={cancelSelect}
+            className="text-sm text-indigo-400 font-medium"
+          >
+            완료
+          </button>
         )}
       </div>
 

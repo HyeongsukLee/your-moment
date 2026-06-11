@@ -64,11 +64,6 @@ export default function EventGalleryPage() {
     });
   }
 
-  function toggleAll() {
-    if (selectedIds.size === photos.length) setSelectedIds(new Set());
-    else setSelectedIds(new Set(photos.map((p) => p.id)));
-  }
-
   function cancelSelect() {
     setSelectMode(false);
     setSelectedIds(new Set());
@@ -110,7 +105,6 @@ export default function EventGalleryPage() {
   }
 
   const myPhotoIds = new Set(prevSearch?.photoIds ?? []);
-  const allSelected = selectedIds.size === photos.length && photos.length > 0;
 
   return (
     <div className="max-w-md mx-auto h-[100dvh] flex flex-col">
@@ -126,12 +120,6 @@ export default function EventGalleryPage() {
             <span className="flex-1 font-semibold text-sm text-center">
               {selectedIds.size > 0 ? `${selectedIds.size}장 선택됨` : "사진 선택"}
             </span>
-            <button
-              onClick={toggleAll}
-              className="text-indigo-400 text-sm font-medium"
-            >
-              {allSelected ? "전체 해제" : "전체 선택"}
-            </button>
           </>
         ) : (
           /* 일반 헤더 */
