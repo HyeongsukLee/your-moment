@@ -6,7 +6,7 @@ import Image from "next/image";
 import PhotoModal from "@/components/PhotoModal";
 import RunningCat from "@/components/RunningCat";
 import Toast, { type ToastData } from "@/components/Toast";
-import { fetchBlobFile, canNativeShare, fallbackDownload } from "@/lib/download";
+import { fetchBlobFile, canNativeShare, fallbackDownload, zipAndDownload } from "@/lib/download";
 
 type Photo = {
   id: string;
@@ -105,11 +105,10 @@ export default function EventGalleryPage() {
 
       if (canNativeShare(files)) {
         await navigator.share({ files, title: "your moment" });
+      } else if (files.length > 1) {
+        await zipAndDownload(files);
       } else {
-        for (const file of files) {
-          fallbackDownload(file);
-          await new Promise((r) => setTimeout(r, 400));
-        }
+        fallbackDownload(files[0]);
       }
 
       ids.forEach((id) => prefetchMap.current.delete(id));

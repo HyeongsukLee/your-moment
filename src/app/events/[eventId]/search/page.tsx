@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { saveImage, fetchBlobFile, canNativeShare, fallbackDownload } from "@/lib/download";
+import { saveImage, fetchBlobFile, canNativeShare, fallbackDownload, zipAndDownload } from "@/lib/download";
 import Toast, { type ToastData } from "@/components/Toast";
 
 type Photo = {
@@ -106,11 +106,10 @@ export default function SearchResultPage() {
 
       if (canNativeShare(files)) {
         await navigator.share({ files, title: "your moment" });
+      } else if (files.length > 1) {
+        await zipAndDownload(files);
       } else {
-        for (const file of files) {
-          fallbackDownload(file);
-          await new Promise((r) => setTimeout(r, 400));
-        }
+        fallbackDownload(files[0]);
       }
 
       ids.forEach((id) => prefetchMap.current.delete(id));

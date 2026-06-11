@@ -1,3 +1,5 @@
+import { zipSync } from "fflate";
+
 /**
  * 이미지 URL을 받아 기기에 저장합니다.
  * - iOS (Web Share API 지원): 공유시트를 열어 "사진에 저장" 가능
@@ -46,10 +48,11 @@ export async function saveImages(
     return;
   }
 
-  // 2b) Fallback (Android/Desktop): 순차 다운로드
-  for (const file of files) {
-    fallbackDownload(file);
-    await new Promise((r) => setTimeout(r, 400));
+  // 2b) Fallback (Desktop): 2장 이상은 ZIP, 1장은 개별 다운로드
+  if (files.length > 1) {
+    await zipAndDownload(files);
+  } else {
+    fallbackDownload(files[0]);
   }
 }
 
@@ -90,6 +93,24 @@ export function canNativeShare(files: File[]): boolean {
     typeof navigator.canShare === "function" &&
     navigator.canShare({ files })
   );
+}
+
+export async function zipAndDownload(files: File[], zipName = "your-moment.zip") {
+  const buffers = await Promise.all(files.map((f) => f.arrayBuffer()));
+  const entries: Record<string, Uint8Array> = {};
+  files.forEach((f, i) => {
+    entries[f.name] = new Uint8Array(buffers[i]);
+  });
+  const zipped = zipSync(entries);
+  const blob = new Blob([zipped], { type: "application/zip" });
+  const objUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = objUrl;
+  a.download = zipName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(objUrl), 2000);
 }
 
 export function fallbackDownload(file: File) {
