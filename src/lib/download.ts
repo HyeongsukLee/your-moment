@@ -57,9 +57,18 @@ export async function saveImages(
 
 function canNativeShare(files: File[]): boolean {
   if (typeof navigator === "undefined") return false;
-  // iPad는 Web Share 공유시트에 "사진에 저장"이 없으므로 제외 — iPhone만 허용
-  const isIphone = /iPhone/.test(navigator.userAgent);
-  if (!isIphone) return false;
+  const ua = navigator.userAgent;
+  const isIphone = /iPhone/.test(ua);
+  // iPad Safari (Chrome 제외): Web Share → "사진에 저장" 지원
+  const isIpadSafari = /iPad/.test(ua) && !/CriOS|Chrome/.test(ua);
+  // 최신 iPad는 desktop mode에서 Macintosh UA를 보냄 — 터치 포인트로 구분
+  const isIpadDesktopSafari =
+    /Macintosh/.test(ua) &&
+    typeof navigator.maxTouchPoints === "number" &&
+    navigator.maxTouchPoints > 1 &&
+    !/Chrome/.test(ua);
+
+  if (!isIphone && !isIpadSafari && !isIpadDesktopSafari) return false;
   return (
     typeof navigator.share === "function" &&
     typeof navigator.canShare === "function" &&
