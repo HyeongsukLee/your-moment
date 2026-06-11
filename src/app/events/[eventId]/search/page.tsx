@@ -323,6 +323,17 @@ export default function SearchResultPage() {
       )}
 
 
+      {/* 공유 대기 배너 */}
+      {downloading && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-gray-800/90 backdrop-blur-sm flex items-center gap-2.5 px-4 py-2.5 rounded-full shadow-lg">
+          <svg className="animate-spin w-4 h-4 text-indigo-400" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" strokeOpacity="0.3"/>
+            <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+          <span className="text-sm text-white/90">사진 준비 중...</span>
+        </div>
+      )}
+
       {/* 다운로드 완료 토스트 */}
       <Toast toast={toast} onClose={closeToast} />
     </div>
