@@ -69,6 +69,8 @@ export async function fetchBlobFile(url: string, id: string): Promise<File> {
 
 export function canNativeShare(files: File[]): boolean {
   if (typeof navigator === "undefined") return false;
+  // 터치 없는 데스크탑(Mac, Windows 등)은 공유시트에 "사진에 저장"이 없으므로 제외
+  if (navigator.maxTouchPoints === 0) return false;
   const ua = navigator.userAgent;
   const isIphone = /iPhone/.test(ua);
   // iPad Safari (Chrome 제외): Web Share → "사진에 저장" 지원
