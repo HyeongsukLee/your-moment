@@ -6,7 +6,7 @@ import Image from "next/image";
 import PhotoModal from "@/components/PhotoModal";
 import RunningCat from "@/components/RunningCat";
 import Toast, { type ToastData } from "@/components/Toast";
-import { saveImages } from "@/lib/download";
+import { fetchBlobFile, canNativeShare, fallbackDownload } from "@/lib/download";
 
 type Photo = {
   id: string;
@@ -34,12 +34,13 @@ export default function EventGalleryPage() {
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  // 다운로드 + 토스트
+  // 공유 + 토스트
   const [downloading, setDownloading] = useState(false);
-  const [dlProgress, setDlProgress] = useState({ done: 0, total: 0 });
   const [toast, setToast] = useState<ToastData | null>(null);
   const closeToast = useCallback(() => setToast(null), []);
   const cancelledRef = useRef(false);
+  // 선-fetch 캐시: photoId → Promise<File>
+  const prefetchMap = useRef<Map<string, Promise<File>>>(new Map());
 
   useEffect(() => {
     fetch(`/api/events/${eventId}/photos`)
@@ -57,10 +58,27 @@ export default function EventGalleryPage() {
   }, [eventId]);
 
   // ── 선택 모드 ───────────────────────────────────
+  function prefetchPhoto(id: string) {
+    if (prefetchMap.current.has(id)) return;
+    const promise = fetch("/api/download", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ photoIds: [id] }),
+    })
+      .then((r) => r.json())
+      .then(({ urls }) => fetchBlobFile(urls[0].url, id));
+    prefetchMap.current.set(id, promise);
+  }
+
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+        prefetchPhoto(id); // 선택 즉시 백그라운드 fetch 시작
+      }
       return next;
     });
   }
@@ -73,27 +91,33 @@ export default function EventGalleryPage() {
   // ── 공유/다운로드 ──────────────────────────────
   async function sharePhotos(ids: string[]) {
     if (ids.length === 0) return;
-    cancelledRef.current = false;
     setDownloading(true);
-    setDlProgress({ done: 0, total: ids.length });
     try {
-      const res = await fetch("/api/download", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ photoIds: ids }),
-      });
-      const { urls } = await res.json();
-      await saveImages(
-        urls,
-        (done, total) => {
-          if (cancelledRef.current) throw new Error("cancelled");
-          setDlProgress({ done, total });
-        },
+      // prefetch된 파일 대기 (이미 완료됐으면 즉시 반환)
+      const files = await Promise.all(
+        ids.map((id) => {
+          if (!prefetchMap.current.has(id)) prefetchPhoto(id);
+          return prefetchMap.current.get(id)!;
+        })
       );
+
+      setDownloading(false); // 스피너 해제 후 share 호출
+
+      if (canNativeShare(files)) {
+        await navigator.share({ files, title: "your moment" });
+      } else {
+        for (const file of files) {
+          fallbackDownload(file);
+          await new Promise((r) => setTimeout(r, 400));
+        }
+      }
+
+      ids.forEach((id) => prefetchMap.current.delete(id));
       cancelSelect();
       setToast({ message: `${ids.length}장 저장 완료`, showGallery: true });
     } catch (e: unknown) {
-      if (e instanceof Error && e.message !== "cancelled") throw e;
+      if (e instanceof Error && (e.message === "cancelled" || e.name === "AbortError")) return;
+      throw e;
     } finally {
       setDownloading(false);
     }
@@ -277,31 +301,6 @@ export default function EventGalleryPage() {
       {/* 사진 확대 모달 */}
       {viewPhoto && (
         <PhotoModal photo={viewPhoto} onClose={() => setViewPhoto(null)} />
-      )}
-
-      {/* 다운로드 진행률 오버레이 */}
-      {downloading && (
-        <div className="fixed inset-0 z-50 bg-gray-950/90 backdrop-blur-sm flex flex-col items-center justify-center gap-6 px-8">
-          <div className="w-full max-w-xs bg-gray-900 rounded-3xl p-6 flex flex-col items-center gap-5 shadow-2xl">
-            <p className="text-base font-semibold">사진 준비 중...</p>
-            <p className="text-gray-400 text-sm -mt-3">
-              {dlProgress.done} / {dlProgress.total}장
-            </p>
-            {/* 진행바 */}
-            <div className="w-full h-2 rounded-full bg-gray-800 overflow-hidden">
-              <div
-                className="h-full bg-indigo-500 rounded-full transition-all duration-300"
-                style={{ width: dlProgress.total > 0 ? `${(dlProgress.done / dlProgress.total) * 100}%` : "0%" }}
-              />
-            </div>
-            <button
-              onClick={() => { cancelledRef.current = true; }}
-              className="text-sm text-gray-400 active:text-white py-1 px-4"
-            >
-              취소
-            </button>
-          </div>
-        </div>
       )}
 
       {/* 사진찾기 로딩 오버레이 */}

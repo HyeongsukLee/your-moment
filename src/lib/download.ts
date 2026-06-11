@@ -53,9 +53,21 @@ export async function saveImages(
   }
 }
 
+/**
+ * 단일 presigned URL을 fetch해 File 객체로 반환합니다.
+ * 선택 시 백그라운드 pre-fetch용으로 사용합니다.
+ */
+export async function fetchBlobFile(url: string, id: string): Promise<File> {
+  const res = await fetch(url);
+  const blob = await res.blob();
+  return new File([blob], `your-moment-${id}.jpg`, {
+    type: blob.type || "image/jpeg",
+  });
+}
+
 // ── 내부 유틸 ───────────────────────────────────────
 
-function canNativeShare(files: File[]): boolean {
+export function canNativeShare(files: File[]): boolean {
   if (typeof navigator === "undefined") return false;
   const ua = navigator.userAgent;
   const isIphone = /iPhone/.test(ua);
@@ -78,7 +90,7 @@ function canNativeShare(files: File[]): boolean {
   );
 }
 
-function fallbackDownload(file: File) {
+export function fallbackDownload(file: File) {
   const objUrl = URL.createObjectURL(file);
   const a = document.createElement("a");
   a.href = objUrl;
