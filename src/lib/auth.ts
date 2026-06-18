@@ -6,9 +6,9 @@ import { db } from "@/lib/db";
 import type { Role } from "@prisma/client";
 
 const isDev = process.env.NODE_ENV !== "production";
-// 운영에서도 간편 로그인을 임시로 켤 수 있는 플래그 (소셜 설정 전)
+// 운영에서도 간편 로그인을 임시로 켤 수 있는 플래그 (소셜 설정 전) — NEXT_PUBLIC_ 접두사 제거로 클라이언트 번들 노출 차단
 const simpleLoginEnabled =
-  isDev || process.env.NEXT_PUBLIC_ENABLE_SIMPLE_LOGIN === "true";
+  isDev || process.env.ENABLE_SIMPLE_LOGIN === "true";
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
   .split(",")
@@ -64,7 +64,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       ? [
           KakaoProvider({
             clientId: process.env.KAKAO_CLIENT_ID,
-            clientSecret: process.env.KAKAO_CLIENT_SECRET ?? "",
+            clientSecret: process.env.KAKAO_CLIENT_SECRET!,
           }),
         ]
       : []),
