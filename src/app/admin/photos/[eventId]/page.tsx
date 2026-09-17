@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState, useRef, useCallback, Suspense } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import CoverEditor from "@/components/CoverEditor";
 import Toast, { type ToastData } from "@/components/Toast";
@@ -11,8 +11,20 @@ type Photo = { id: string; thumbnailUrl: string; uploaderId: string | null; orig
 type EventInfo = { name: string };
 
 export default function AdminPhotosPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminPhotosContent />
+    </Suspense>
+  );
+}
+
+function AdminPhotosContent() {
   const { eventId } = useParams<{ eventId: string }>();
   const router = useRouter();
+
+  // 어디서 들어왔는지에 따라 뒤로가기 목적지가 달라진다
+  const backHref =
+    useSearchParams().get("from") === "events" ? "/admin/events" : "/admin/photos";
 
   // 사진 데이터
   const [event, setEvent] = useState<EventInfo | null>(null);
@@ -231,7 +243,7 @@ export default function AdminPhotosPage() {
     <div className="max-w-md mx-auto px-4 py-6 pb-28">
       {/* 헤더 */}
       <header className="flex items-center gap-2 mb-4">
-        <button onClick={() => router.push("/admin/photos")} className="text-gray-400 shrink-0">
+        <button onClick={() => router.push(backHref)} className="text-gray-400 shrink-0">
           ←
         </button>
         <h1 className="text-lg font-bold flex-1 truncate">

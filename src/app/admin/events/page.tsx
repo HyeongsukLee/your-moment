@@ -423,7 +423,7 @@ export default function AdminEventsPage() {
                     ))}
                   </select>
                   <button
-                    onClick={() => router.push(`/admin/photos/${e.id}`)}
+                    onClick={() => router.push(`/admin/photos/${e.id}?from=events`)}
                     className="text-xs font-medium px-3 py-2 rounded-lg bg-gray-800 active:bg-gray-700 text-gray-200 shrink-0"
                   >
                     사진
