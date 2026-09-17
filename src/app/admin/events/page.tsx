@@ -45,6 +45,13 @@ export default function AdminEventsPage() {
   const [newGroupId, setNewGroupId] = useState("");
   const [creating, setCreating] = useState(false);
 
+  // 행사 수정 모달
+  const [editTarget, setEditTarget] = useState<EventItem | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editGroupId, setEditGroupId] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+
   // 삭제 확인
   const [deleteTarget, setDeleteTarget] = useState<EventItem | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -154,6 +161,52 @@ export default function AdminEventsPage() {
       body: JSON.stringify({ groupId: gid }),
     });
     if (!res.ok) setToast({ message: "그룹 변경 실패" });
+  }
+
+  function openEdit(e: EventItem) {
+    setEditTarget(e);
+    setEditName(e.name);
+    setEditDate(e.date.slice(0, 10));
+    setEditGroupId(e.groupId ?? "");
+  }
+
+  async function saveEdit() {
+    if (!editTarget) return;
+    if (!editName.trim() || !editDate) {
+      setToast({ message: "이름과 날짜를 입력하세요" });
+      return;
+    }
+    setEditSaving(true);
+    const res = await fetch(`/api/admin/events/${editTarget.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: editName,
+        date: editDate,
+        groupId: editGroupId || null,
+      }),
+    });
+    setEditSaving(false);
+    if (!res.ok) {
+      setToast({ message: "수정 실패" });
+      return;
+    }
+    const gid = editGroupId || null;
+    setEvents((prev) =>
+      prev.map((e) =>
+        e.id === editTarget.id
+          ? {
+              ...e,
+              name: editName.trim(),
+              date: new Date(editDate).toISOString(),
+              groupId: gid,
+              groupName: groups.find((g) => g.id === gid)?.name ?? null,
+            }
+          : e
+      )
+    );
+    setEditTarget(null);
+    setToast({ message: "행사를 수정했어요" });
   }
 
   async function createEvent() {
@@ -323,6 +376,13 @@ export default function AdminEventsPage() {
                     </div>
                   </div>
                   <button
+                    onClick={() => openEdit(e)}
+                    className="w-8 h-8 flex items-center justify-center text-gray-500 active:text-indigo-400 shrink-0"
+                    aria-label="행사 정보 수정"
+                  >
+                    ✏️
+                  </button>
+                  <button
                     onClick={() => toggleDraft(e.id)}
                     className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
                       on ? "bg-indigo-600" : "bg-gray-700"
@@ -362,6 +422,12 @@ export default function AdminEventsPage() {
                       </option>
                     ))}
                   </select>
+                  <button
+                    onClick={() => router.push(`/admin/photos/${e.id}`)}
+                    className="text-xs font-medium px-3 py-2 rounded-lg bg-gray-800 active:bg-gray-700 text-gray-200 shrink-0"
+                  >
+                    사진
+                  </button>
                   <button
                     onClick={() => copyEventLink(e)}
                     disabled={!e.code}
@@ -405,6 +471,57 @@ export default function AdminEventsPage() {
           >
             {saving ? "저장 중..." : "공개 설정 저장"}
           </button>
+        </div>
+      )}
+
+      {/* 행사 수정 모달 */}
+      {editTarget && (
+        <div className="fixed inset-0 z-40 bg-black/70 flex items-end sm:items-center justify-center">
+          <div className="w-full max-w-md bg-gray-900 rounded-t-3xl sm:rounded-3xl p-5">
+            <h3 className="font-semibold text-lg mb-3">행사 수정</h3>
+            <div className="space-y-2">
+              <input
+                value={editName}
+                onChange={(ev) => setEditName(ev.target.value)}
+                placeholder="행사 이름"
+                className="w-full bg-gray-800 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 ring-indigo-500"
+              />
+              <input
+                type="date"
+                value={editDate}
+                onChange={(ev) => setEditDate(ev.target.value)}
+                className="w-full bg-gray-800 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 ring-indigo-500"
+              />
+              <select
+                value={editGroupId}
+                onChange={(ev) => setEditGroupId(ev.target.value)}
+                className="w-full bg-gray-800 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 ring-indigo-500"
+              >
+                <option value="">그룹 미지정</option>
+                {groups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={() => setEditTarget(null)}
+                disabled={editSaving}
+                className="flex-1 py-3 rounded-xl bg-gray-800 text-gray-300 text-sm font-medium disabled:opacity-60"
+              >
+                취소
+              </button>
+              <button
+                onClick={saveEdit}
+                disabled={editSaving}
+                className="flex-1 py-3 rounded-xl bg-indigo-600 active:bg-indigo-700 text-white text-sm font-semibold disabled:opacity-60"
+              >
+                {editSaving ? "저장 중..." : "저장"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

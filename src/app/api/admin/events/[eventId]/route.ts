@@ -15,14 +15,36 @@ export async function PATCH(
   const { eventId } = await params;
   const body = await req.json();
 
-  // isActive 토글 또는 groupId 변경 (둘 중 최소 하나)
-  const data: { isActive?: boolean; groupId?: string | null } = {};
+  // name / date / isActive / groupId 중 전달된 것만 반영
+  const data: {
+    name?: string;
+    date?: Date;
+    isActive?: boolean;
+    groupId?: string | null;
+  } = {};
+
+  if ("name" in body) {
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    if (!name) {
+      return Response.json({ error: "행사 이름을 입력하세요" }, { status: 400 });
+    }
+    data.name = name;
+  }
+
+  if ("date" in body) {
+    const date = new Date(body.date);
+    if (Number.isNaN(date.getTime())) {
+      return Response.json({ error: "날짜가 올바르지 않습니다" }, { status: 400 });
+    }
+    data.date = date;
+  }
+
   if (typeof body.isActive === "boolean") data.isActive = body.isActive;
   if ("groupId" in body) data.groupId = body.groupId || null;
 
   if (Object.keys(data).length === 0) {
     return Response.json(
-      { error: "isActive(boolean) 또는 groupId 필요" },
+      { error: "name, date, isActive, groupId 중 하나는 필요합니다" },
       { status: 400 }
     );
   }
@@ -30,10 +52,10 @@ export async function PATCH(
   const event = await db.event.update({
     where: { id: eventId },
     data,
-    select: { id: true, name: true, isActive: true, groupId: true },
+    select: { id: true, name: true, date: true, isActive: true, groupId: true },
   });
 
-  return Response.json(event);
+  return Response.json({ ...event, date: event.date.toISOString() });
 }
 
 // 행사 삭제 — 관리자 전용. 속한 사진(S3·Rekognition·DB) 전체 정리 후 삭제.
