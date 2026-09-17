@@ -4,6 +4,7 @@ import KakaoProvider from "next-auth/providers/kakao";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { db } from "@/lib/db";
+import { logActivity } from "@/lib/activity";
 import type { Role } from "@prisma/client";
 
 const isDev = process.env.NODE_ENV !== "production";
@@ -107,17 +108,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     // 소셜 로그인 시 유저를 DB에 보장
     async signIn({ user, account }) {
       if (account?.provider === "kakao") {
-        await ensureUser({
+        const dbUser = await ensureUser({
           kakaoId: account.providerAccountId,
           email: user.email,
           name: user.name,
           image: user.image,
         });
+        if (dbUser) await logActivity(dbUser.id, "LOGIN");
       } else if (account?.provider === "google") {
         // 구글은 이메일을 항상 제공 (현재 미사용이나 호환 유지)
         if (user.email) {
           const shouldBeAdmin = ADMIN_EMAILS.includes(user.email);
-          await db.user.upsert({
+          const dbUser = await db.user.upsert({
             where: { email: user.email },
             update: {
               name: user.name ?? undefined,
@@ -130,8 +132,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               image: user.image,
               role: shouldBeAdmin ? "ADMIN" : "PARTICIPANT",
             },
+            select: { id: true },
           });
+          await logActivity(dbUser.id, "LOGIN");
         }
+      } else if (account?.provider === "dev" && user.id) {
+        // 간편 로그인(테스트 계정)도 동일하게 집계
+        await logActivity(user.id, "LOGIN");
       }
       return true;
     },

@@ -15,20 +15,40 @@ enum Role {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String?   @unique
-  name          String?
-  image         String?
-  kakaoId       String?   @unique
-  role          Role      @default(PARTICIPANT)
-  instagram     String?   // 작가 인스타 아이디 (사진 출처 표시용, @ 제외 핸들)
-  createdAt     DateTime  @default(now())
-  searches      Search[]
-  ownedEvents   Event[]   @relation("EventOwner")
-  assignedEvents Event[]  @relation("EventPhotographers")
-  uploadedPhotos Photo[]  @relation("PhotoUploader")
-  groups        Group[]   @relation("GroupMembers")
-  notifications Notification[]
+  id             String         @id @default(cuid())
+  email          String?        @unique
+  name           String?
+  image          String?
+  kakaoId        String?        @unique
+  role           Role           @default(PARTICIPANT)
+  instagram      String? // 작가 인스타 아이디 (사진 출처 표시용, @ 제외 핸들)
+  createdAt      DateTime       @default(now())
+  searches       Search[]
+  ownedEvents    Event[]        @relation("EventOwner")
+  assignedEvents Event[]        @relation("EventPhotographers")
+  uploadedPhotos Photo[]        @relation("PhotoUploader")
+  groups         Group[]        @relation("GroupMembers")
+  notifications  Notification[]
+  activityLogs   ActivityLog[]
+}
+
+/**
+ * 참가자 활동 기록 (관리자 통계용).
+ * eventId/photoId는 의도적으로 FK 관계를 걸지 않는다 —
+ * 행사나 사진이 삭제돼도 과거 통계는 남아야 하기 때문.
+ */
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // LOGIN | EVENT_VIEW | DOWNLOAD
+  eventId   String? // EVENT_VIEW | DOWNLOAD (LOGIN은 null)
+  photoId   String? // DOWNLOAD: 사진 1장 = 1행
+  createdAt DateTime @default(now())
+
+  @@index([userId, type])
+  @@index([eventId, type])
+  @@index([type, createdAt])
 }
 
 model Group {
@@ -44,10 +64,10 @@ model Notification {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      String   // PHOTOS_UPLOADED | ROLE_CHANGED | PHOTOS_OF_ME | NEW_EVENT
+  type      String // PHOTOS_UPLOADED | ROLE_CHANGED | PHOTOS_OF_ME | NEW_EVENT
   title     String
   body      String?
-  eventId   String?  // 관련 행사 (탭 시 이동)
+  eventId   String? // 관련 행사 (탭 시 이동)
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
 
@@ -55,55 +75,55 @@ model Notification {
 }
 
 model Event {
-  id          String    @id @default(cuid())
-  name        String
-  description String?
-  date        DateTime
-  thumbnailUrl String?
-  coverPhotoId String?  // 관리자가 지정한 대표 사진 (Photo.id). 없으면 첫 사진 사용
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  date          DateTime
+  thumbnailUrl  String?
+  coverPhotoId  String? // 관리자가 지정한 대표 사진 (Photo.id). 없으면 첫 사진 사용
   coverPosition String? // 대표 사진의 표시 위치 "x% y%" (object-position). 기본 "50% 50%"
-  ownerId     String?   // 이 행사를 만든 사람 (관리자)
-  owner       User?     @relation("EventOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  photographers User[]  @relation("EventPhotographers") // 이 행사에 업로드 배정된 작가들 (레거시)
-  groupId     String?   // 이 행사가 속한 그룹 (홈 노출/업로드 권한의 단위)
-  group       Group?    @relation(fields: [groupId], references: [id], onDelete: SetNull)
-  code        String?   @unique // 행사 공유 링크용 코드 (/e/<code> → 그룹 가입)
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  photos      Photo[]
+  ownerId       String? // 이 행사를 만든 사람 (관리자)
+  owner         User?    @relation("EventOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  photographers User[]   @relation("EventPhotographers") // 이 행사에 업로드 배정된 작가들 (레거시)
+  groupId       String? // 이 행사가 속한 그룹 (홈 노출/업로드 권한의 단위)
+  group         Group?   @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  code          String?  @unique // 행사 공유 링크용 코드 (/e/<code> → 그룹 가입)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  photos        Photo[]
 }
 
 model Photo {
-  id            String    @id @default(cuid())
-  eventId       String
-  event         Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  uploaderId    String?   // 이 사진을 올린 작가/관리자 (본인 사진 삭제 권한용)
-  uploader      User?     @relation("PhotoUploader", fields: [uploaderId], references: [id], onDelete: SetNull)
-  s3Key         String    @unique
-  thumbnailKey      String
-  originalFilename  String?
-  rekognitionId String?
-  width         Int?
-  height        Int?
-  createdAt     DateTime  @default(now())
-  searchResults SearchResult[]
+  id               String         @id @default(cuid())
+  eventId          String
+  event            Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  uploaderId       String? // 이 사진을 올린 작가/관리자 (본인 사진 삭제 권한용)
+  uploader         User?          @relation("PhotoUploader", fields: [uploaderId], references: [id], onDelete: SetNull)
+  s3Key            String         @unique
+  thumbnailKey     String
+  originalFilename String?
+  rekognitionId    String?
+  width            Int?
+  height           Int?
+  createdAt        DateTime       @default(now())
+  searchResults    SearchResult[]
 }
 
 model Search {
-  id          String    @id @default(cuid())
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  eventId     String
-  selfieKey   String
-  createdAt   DateTime  @default(now())
-  results     SearchResult[]
+  id        String         @id @default(cuid())
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId   String
+  selfieKey String
+  createdAt DateTime       @default(now())
+  results   SearchResult[]
 }
 
 model SearchResult {
-  id        String   @id @default(cuid())
-  searchId  String
-  search    Search   @relation(fields: [searchId], references: [id], onDelete: Cascade)
-  photoId   String
-  photo     Photo    @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  id         String @id @default(cuid())
+  searchId   String
+  search     Search @relation(fields: [searchId], references: [id], onDelete: Cascade)
+  photoId    String
+  photo      Photo  @relation(fields: [photoId], references: [id], onDelete: Cascade)
   similarity Float
 }
