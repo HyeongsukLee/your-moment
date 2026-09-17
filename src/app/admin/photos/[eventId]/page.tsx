@@ -242,7 +242,7 @@ function AdminPhotosContent() {
   return (
     <div className="max-w-md mx-auto px-4 py-6 pb-28">
       {/* 헤더 */}
-      <header className="flex items-center gap-2 mb-4">
+      <header className="sticky top-0 z-30 flex items-center gap-2 -mx-4 px-4 py-3 mb-3 bg-gray-950/95 backdrop-blur">
         <button onClick={() => router.push(backHref)} className="text-gray-400 shrink-0">
           ←
         </button>
