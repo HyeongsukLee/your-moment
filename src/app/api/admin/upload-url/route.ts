@@ -1,24 +1,23 @@
 import { canUploadToEvent } from "@/lib/admin";
 import { getPresignedUploadUrl } from "@/lib/s3";
+import { isAllowedUploadType, ALLOWED_UPLOAD_LABEL } from "@/lib/upload";
 import { randomUUID } from "crypto";
-
-const ALLOWED_CONTENT_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/heic",
-]);
 
 export async function POST(req: Request) {
   const { eventId, contentType } = await req.json();
 
-  if (!ALLOWED_CONTENT_TYPES.has(contentType)) {
-    return Response.json({ error: "Invalid content type" }, { status: 400 });
-  }
-
+  // 권한 검사를 형식 검사보다 먼저 한다 — 권한 없는 사람에게
+  // 내부 형식 정책("어떤 형식을 받는지")을 노출하지 않기 위해서다.
   const session = await canUploadToEvent(eventId);
   if (!session) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  if (!isAllowedUploadType(contentType)) {
+    return Response.json(
+      { error: "Invalid content type", allowed: ALLOWED_UPLOAD_LABEL },
+      { status: 400 }
+    );
   }
 
   const photoId = randomUUID();

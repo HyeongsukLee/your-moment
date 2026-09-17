@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import CoverEditor from "@/components/CoverEditor";
 import Toast, { type ToastData } from "@/components/Toast";
+import { isAllowedUploadFile, UPLOAD_ACCEPT, ALLOWED_UPLOAD_LABEL } from "@/lib/upload";
 
 type Photo = { id: string; thumbnailUrl: string; uploaderId: string | null; originalFilename: string | null };
 type EventInfo = { name: string };
@@ -108,10 +109,19 @@ export default function AdminPhotosPage() {
   // 업로드
   function onFilesPicked(files: FileList) {
     const existingNames = new Set(photos.map((p) => p.originalFilename).filter(Boolean));
-    const arr = Array.from(files).filter((f) => !existingNames.has(f.name));
-    const skipped = files.length - arr.length;
-    if (skipped > 0) {
-      setToast({ message: `이미 업로드된 ${skipped}장 제외, ${arr.length}장 업로드합니다` });
+    const notDuplicate = Array.from(files).filter((f) => !existingNames.has(f.name));
+    const duplicateCount = files.length - notDuplicate.length;
+    const arr = notDuplicate.filter(isAllowedUploadFile);
+    const wrongTypeCount = notDuplicate.length - arr.length;
+
+    if (duplicateCount > 0 && wrongTypeCount > 0) {
+      setToast({
+        message: `이미 업로드된 ${duplicateCount}장, ${ALLOWED_UPLOAD_LABEL}가 아닌 ${wrongTypeCount}장 제외, ${arr.length}장 업로드합니다`,
+      });
+    } else if (duplicateCount > 0) {
+      setToast({ message: `이미 업로드된 ${duplicateCount}장 제외, ${arr.length}장 업로드합니다` });
+    } else if (wrongTypeCount > 0) {
+      setToast({ message: `${ALLOWED_UPLOAD_LABEL}가 아닌 ${wrongTypeCount}장은 제외했어요` });
     }
     if (arr.length === 0) return;
     setPendingFiles(arr);
@@ -152,13 +162,19 @@ export default function AdminPhotosPage() {
     const hadCover = !!coverId;
     let doneCount = 0;
 
+    let rejectedCount = 0;
     async function uploadOne(file: File): Promise<string | null> {
       const urlRes = await fetch("/api/admin/upload-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ eventId, contentType: file.type }),
       });
-      if (!urlRes.ok) return null;
+      if (!urlRes.ok) {
+        rejectedCount++;
+        doneCount++;
+        setProgress({ done: doneCount, total: files.length });
+        return null;
+      }
       const { photoId, s3Key, thumbnailKey, uploadUrl, thumbnailUploadUrl } = await urlRes.json();
 
       const thumbBlob = await makeThumbnail(file, 400);
@@ -203,7 +219,12 @@ export default function AdminPhotosPage() {
 
     cancelledRef.current = false;
     await loadPhotos();
-    setToast({ message: `${files.length}장 업로드 완료!` });
+    const uploaded = files.length - rejectedCount;
+    setToast(
+      rejectedCount > 0
+        ? { message: `${uploaded}장 업로드 완료`, sub: `${ALLOWED_UPLOAD_LABEL}가 아닌 ${rejectedCount}장은 올리지 못했어요` }
+        : { message: `${uploaded}장 업로드 완료!` }
+    );
   }
 
   return (
@@ -337,7 +358,7 @@ export default function AdminPhotosPage() {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept={UPLOAD_ACCEPT}
         multiple
         className="hidden"
         onChange={(e) => e.target.files && onFilesPicked(e.target.files)}

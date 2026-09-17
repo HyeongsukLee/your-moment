@@ -18,6 +18,7 @@
 | `rekognition.ts` | AWS Rekognition 헬퍼: `indexFace`, `searchFacesByImage`, `searchFacesByS3`, `deleteFaces`, `ensureCollection` |
 | `code.ts` | `generateCode()` — 그룹·행사 참여 링크용 nanoid 8자 단축 코드 생성 |
 | `download.ts` | 여러 사진 일괄 다운로드 헬퍼 |
+| `upload.ts` | 업로드 허용 형식(JPEG)의 단일 진실 원천. **예외적으로 클라이언트 컴포넌트에서 임포트 가능** — 순수 함수·상수만 있고 어떤 것도 import 하지 않는다 |
 
 ## AI 에이전트 가이드
 
@@ -29,6 +30,11 @@ await requireStaff()           // ADMIN 또는 PHOTOGRAPHER
 await canUploadToEvent(id)     // ADMIN 또는 그룹 멤버 PHOTOGRAPHER
 await canDeletePhoto(id)       // ADMIN 또는 사진 업로더 본인
 ```
+
+### ⚠️ 업로드 형식 (upload.ts)
+서버(`api/admin/upload-url`)와 파일 선택 UI가 **반드시 `upload.ts`의 정의를 함께 읽는다.** 예전에 UI는 `accept="image/*"`로 모든 이미지를 허용하는데 서버는 4종만 받아서, 고를 수는 있는데 업로드는 실패하는 상태였다.
+
+허용 형식을 JPEG로 좁힌 이유: 원본이 그대로 [rekognition.ts](rekognition.ts)의 `indexFace()`로 넘어가는데 Rekognition은 JPEG/PNG만 읽는다. 형식을 바꿀 일이 있으면 `upload.ts` 하나만 고치면 양쪽에 반영된다.
 
 ### ⚠️ 미들웨어와 엣지 런타임 (auth.config.ts)
 `src/middleware.ts`는 **엣지 런타임**에서 돌기 때문에 `@/lib/auth`가 아니라 `@/lib/auth.config`만 임포트한다.
