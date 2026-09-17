@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Toast, { type ToastData } from "@/components/Toast";
+import { isAllowedUploadFile, UPLOAD_ACCEPT, ALLOWED_UPLOAD_LABEL } from "@/lib/upload";
 
 type EventOption = { id: string; name: string; date: string; photoCount: number };
 
@@ -81,7 +82,13 @@ export default function AdminUploadPage() {
       alert("순간을 먼저 선택하세요");
       return;
     }
-    const arr = Array.from(files);
+    const all = Array.from(files);
+    const arr = all.filter(isAllowedUploadFile);
+    const skipped = all.length - arr.length;
+    if (skipped > 0) {
+      setToast({ message: `${ALLOWED_UPLOAD_LABEL}가 아닌 ${skipped}장은 제외했어요` });
+    }
+    if (arr.length === 0) return;
     setPendingFiles(arr);
     setPreviews(arr.slice(0, 6).map((f) => URL.createObjectURL(f)));
   }
@@ -103,6 +110,7 @@ export default function AdminUploadPage() {
     setUploading(true);
     setProgress({ done: 0, total: files.length });
 
+    let rejectedCount = 0;
     for (let i = 0; i < files.length; i++) {
       if (cancelledRef.current) break;
       const file = files[i];
@@ -114,6 +122,12 @@ export default function AdminUploadPage() {
       if (urlRes.status === 403) {
         alert("이 행사에 업로드할 권한이 없습니다");
         break;
+      }
+      if (!urlRes.ok) {
+        // 형식 거부 등 — 이 파일만 건너뛰고 나머지는 계속 업로드한다
+        rejectedCount++;
+        setProgress({ done: i + 1, total: files.length });
+        continue;
       }
       const { photoId, s3Key, thumbnailKey, uploadUrl, thumbnailUploadUrl } =
         await urlRes.json();
@@ -155,7 +169,12 @@ export default function AdminUploadPage() {
       fetch(`/api/admin/events/${eventId}/notify-upload`, {
         method: "POST",
       }).catch(() => {});
-      alert(`${files.length}장 업로드 완료!`);
+      const uploaded = files.length - rejectedCount;
+      alert(
+        rejectedCount > 0
+          ? `${uploaded}장 업로드 완료! (형식 오류 ${rejectedCount}장 제외)`
+          : `${uploaded}장 업로드 완료!`
+      );
     }
   }
 
@@ -248,7 +267,7 @@ export default function AdminUploadPage() {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept={UPLOAD_ACCEPT}
         multiple
         className="hidden"
         onChange={(e) => e.target.files && onFilesPicked(e.target.files)}
