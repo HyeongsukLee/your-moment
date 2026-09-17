@@ -15,11 +15,18 @@
 | `lib/` | 서버 사이드 유틸리티 모듈: DB, 인증, AWS 등 (`lib/AGENTS.md` 참고) |
 | `types/` | TypeScript 선언 파일 (`types/AGENTS.md` 참고) |
 
+## 주요 파일
+
+| 파일 | 설명 |
+|------|------|
+| `middleware.ts` | `/admin`·`/api/admin` 접근 시 역할 검사(엣지 런타임). `@/lib/auth.config`만 임포트하며 **Prisma를 끌어들이면 배포가 실패한다** — `lib/AGENTS.md` 참고 |
+
 ## AI 에이전트 가이드
 
 - 모든 임포트는 `tsconfig.json`에 설정된 `@/` 별칭 사용 (`src/` 를 가리킴)
 - `app/` 내 컴포넌트는 기본적으로 서버 컴포넌트; 인터랙션이 필요한 경우에만 `"use client"` 추가
 - `PrismaClient`를 직접 생성하지 말 것 — 반드시 `lib/db.ts` 싱글톤 사용
 - 인증 확인은 API 라우트나 서버 컴포넌트에서 수행; 클라이언트 컴포넌트에서 하지 말 것
+- `middleware.ts`가 (직간접적으로) 임포트하는 파일에는 Prisma를 넣지 말 것 — 엣지 번들 1MB 제한
 
 <!-- MANUAL: -->
