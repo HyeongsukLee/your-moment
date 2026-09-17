@@ -1,4 +1,5 @@
 import NextAuth from "next-auth";
+import { authConfig } from "@/lib/auth.config";
 import KakaoProvider from "next-auth/providers/kakao";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -58,6 +59,7 @@ async function ensureUser(profile: {
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  ...authConfig,
   providers: [
     // KAKAO_CLIENT_SECRET은 선택사항 — 없으면 빈 문자열로 동작
     ...(process.env.KAKAO_CLIENT_ID
@@ -100,6 +102,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       : []),
   ],
   callbacks: {
+    // 엣지 안전한 공통 콜백(session) 상속
+    ...authConfig.callbacks,
     // 소셜 로그인 시 유저를 DB에 보장
     async signIn({ user, account }) {
       if (account?.provider === "kakao") {
@@ -169,15 +173,5 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
       return token;
     },
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.uid ?? token.sub ?? "";
-        session.user.role = token.role ?? "PARTICIPANT";
-      }
-      return session;
-    },
-  },
-  pages: {
-    signIn: "/login",
   },
 });
