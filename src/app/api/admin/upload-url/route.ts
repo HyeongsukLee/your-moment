@@ -2,8 +2,19 @@ import { canUploadToEvent } from "@/lib/admin";
 import { getPresignedUploadUrl } from "@/lib/s3";
 import { randomUUID } from "crypto";
 
+const ALLOWED_CONTENT_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+]);
+
 export async function POST(req: Request) {
   const { eventId, contentType } = await req.json();
+
+  if (!ALLOWED_CONTENT_TYPES.has(contentType)) {
+    return Response.json({ error: "Invalid content type" }, { status: 400 });
+  }
 
   const session = await canUploadToEvent(eventId);
   if (!session) {

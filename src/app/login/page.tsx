@@ -10,7 +10,8 @@ const googleEnabled = process.env.NEXT_PUBLIC_GOOGLE_ENABLED === "true";
 function LoginButtons() {
   const params = useSearchParams();
   // 가입 링크(/join, /e)에서 넘어온 경우 로그인 후 그 페이지로 돌아간다.
-  const callbackUrl = params.get("callbackUrl") || "/";
+  const raw = params.get("callbackUrl") || "/";
+  const callbackUrl = raw.startsWith("/") && !raw.startsWith("//") ? raw : "/";
 
   return (
     <div className="w-full max-w-xs flex flex-col gap-3">

@@ -1,4 +1,5 @@
 import NextAuth from "next-auth";
+import { authConfig } from "@/lib/auth.config";
 import KakaoProvider from "next-auth/providers/kakao";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -6,9 +7,9 @@ import { db } from "@/lib/db";
 import type { Role } from "@prisma/client";
 
 const isDev = process.env.NODE_ENV !== "production";
-// 운영에서도 간편 로그인을 임시로 켤 수 있는 플래그 (소셜 설정 전)
+// 운영에서도 간편 로그인을 임시로 켤 수 있는 플래그 (소셜 설정 전) — NEXT_PUBLIC_ 접두사 제거로 클라이언트 번들 노출 차단
 const simpleLoginEnabled =
-  isDev || process.env.NEXT_PUBLIC_ENABLE_SIMPLE_LOGIN === "true";
+  isDev || process.env.ENABLE_SIMPLE_LOGIN === "true";
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
   .split(",")
@@ -58,13 +59,14 @@ async function ensureUser(profile: {
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  ...authConfig,
   providers: [
     // KAKAO_CLIENT_SECRET은 선택사항 — 없으면 빈 문자열로 동작
     ...(process.env.KAKAO_CLIENT_ID
       ? [
           KakaoProvider({
             clientId: process.env.KAKAO_CLIENT_ID,
-            clientSecret: process.env.KAKAO_CLIENT_SECRET ?? "",
+            clientSecret: process.env.KAKAO_CLIENT_SECRET!,
           }),
         ]
       : []),
@@ -100,6 +102,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       : []),
   ],
   callbacks: {
+    // 엣지 안전한 공통 콜백(session) 상속
+    ...authConfig.callbacks,
     // 소셜 로그인 시 유저를 DB에 보장
     async signIn({ user, account }) {
       if (account?.provider === "kakao") {
@@ -169,15 +173,5 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
       return token;
     },
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.uid ?? token.sub ?? "";
-        session.user.role = token.role ?? "PARTICIPANT";
-      }
-      return session;
-    },
-  },
-  pages: {
-    signIn: "/login",
   },
 });

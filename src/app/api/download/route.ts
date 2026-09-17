@@ -13,8 +13,14 @@ export async function POST(req: Request) {
     return Response.json({ error: "No photoIds" }, { status: 400 });
   }
 
+  const isAdmin = session.user.role === "ADMIN";
   const photos = await db.photo.findMany({
-    where: { id: { in: photoIds } },
+    where: {
+      id: { in: photoIds },
+      ...(isAdmin
+        ? {}
+        : { event: { group: { members: { some: { id: session.user.id } } } } }),
+    },
     select: { id: true, s3Key: true, originalFilename: true },
   });
 
