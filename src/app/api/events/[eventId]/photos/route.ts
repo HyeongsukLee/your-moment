@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { resolveImageUrl } from "@/lib/s3";
+import { logActivity } from "@/lib/activity";
 
 export async function GET(
   _req: Request,
@@ -33,6 +34,11 @@ export async function GET(
 
   if (!event) {
     return Response.json({ error: "Not found" }, { status: 404 });
+  }
+
+  // 행사별 방문 집계용. 새로고침마다 쌓이므로 통계 쪽에서 고유 사용자로 집계한다.
+  if (session.user?.id) {
+    await logActivity(session.user.id, "EVENT_VIEW", { eventId });
   }
 
   return Response.json({
