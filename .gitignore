@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# agent tooling (로컬 세션 상태 — 저장소에 공유하지 않음)
+.omc/
+.claude/plans/
