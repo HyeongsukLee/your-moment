@@ -11,6 +11,7 @@
 | 파일 | 설명 |
 |------|------|
 | `seed-groups.ts` | 로컬/스테이징 환경용 참여 코드가 있는 Group 레코드 시드 |
+| `cleanup-orphan-faces.ts` | 삭제된 사진의 Rekognition 얼굴만 골라 정리 (기본 확인 모드, `--apply`로 실제 삭제) |
 
 ## AI 에이전트 가이드
 
