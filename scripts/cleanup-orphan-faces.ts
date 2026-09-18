@@ -24,7 +24,30 @@ const client = new RekognitionClient({
   },
 });
 
-const DELETE_CHUNK = 1000; // DeleteFaces 상한은 4096
+const DELETE_CHUNK = 25; // 4096까지 가능하지만 이 계정의 컬렉션 쓰기 처리량이 낮아 작게 잡음
+const RETRY_DELAY_MS = 10000;
+const MAX_RETRIES = 10;
+const BETWEEN_CHUNK_DELAY_MS = 3000;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function deleteFacesWithRetry(ids: string[]) {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      await deleteFaces(ids);
+      return;
+    } catch (e) {
+      const throttled =
+        e instanceof Error && e.name === "ProvisionedThroughputExceededException";
+      if (!throttled || attempt === MAX_RETRIES) throw e;
+      const wait = RETRY_DELAY_MS * (attempt + 1);
+      console.log(`  처리량 제한, ${wait}ms 대기 후 재시도 (${attempt + 1}/${MAX_RETRIES})`);
+      await sleep(wait);
+    }
+  }
+}
 
 async function listAllFaces(): Promise<Face[]> {
   const faces: Face[] = [];
@@ -94,9 +117,10 @@ async function main() {
   let deleted = 0;
   for (let i = 0; i < toDelete.length; i += DELETE_CHUNK) {
     const chunk = toDelete.slice(i, i + DELETE_CHUNK);
-    await deleteFaces(chunk);
+    await deleteFacesWithRetry(chunk);
     deleted += chunk.length;
     console.log(`  ... ${deleted}/${toDelete.length}`);
+    await sleep(BETWEEN_CHUNK_DELAY_MS); // 묶음 사이에 쉬어 처리량 제한을 피함
   }
   console.log(`\n${deleted}개를 삭제했습니다.\n`);
 }
