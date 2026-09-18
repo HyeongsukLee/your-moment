@@ -97,25 +97,48 @@ function AdminPhotosContent() {
     });
   }
 
+  const selectableIds = photos.filter(canDelete).map((p) => p.id);
+  const allSelected =
+    selectableIds.length > 0 && selected.size === selectableIds.length;
+
+  function toggleSelectAll() {
+    setSelected(allSelected ? new Set() : new Set(selectableIds));
+  }
+
   // 다중 삭제
   async function doDeleteSelected() {
     setDeleting(true);
     const ids = Array.from(selected);
-    await Promise.all(
-      ids.map((photoId) =>
-        fetch("/api/admin/delete-photo", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ photoId }),
-        })
-      )
-    );
+
+    // 전체 선택이면 수백~수천 건이라, 한꺼번에 보내지 않고 묶음으로 나눈다
+    const CHUNK = 10;
+    let failed = 0;
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const results = await Promise.all(
+        ids.slice(i, i + CHUNK).map((photoId) =>
+          fetch("/api/admin/delete-photo", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ photoId }),
+          }).catch(() => null)
+        )
+      );
+      failed += results.filter((r) => !r?.ok).length;
+    }
+
     setDeleting(false);
     setConfirmDelete(false);
     setSelectMode(false);
     setSelected(new Set());
     await loadPhotos();
-    setToast({ message: `${ids.length}장을 삭제했어요` });
+    setToast(
+      failed > 0
+        ? {
+            message: `${ids.length - failed}장을 삭제했어요`,
+            sub: `${failed}장은 삭제하지 못했어요`,
+          }
+        : { message: `${ids.length}장을 삭제했어요` }
+    );
   }
 
   // 업로드
@@ -351,15 +374,23 @@ function AdminPhotosContent() {
         </div>
       )}
 
-      {/* 하단 고정 — 선택 모드에서 항목 선택 시 */}
-      {selectMode && selected.size > 0 && (
-        <div className="fixed bottom-0 inset-x-0 z-30 flex items-center justify-between px-6 py-4 bg-gray-950/95 border-t border-gray-800 backdrop-blur">
-          <span className="text-sm text-gray-300">
+      {/* 하단 고정 — 선택 모드 동안 계속 표시 */}
+      {selectMode && (
+        <div className="fixed bottom-0 inset-x-0 z-30 flex items-center justify-between gap-2 px-5 py-4 bg-gray-950/95 border-t border-gray-800 backdrop-blur">
+          <button
+            onClick={toggleSelectAll}
+            disabled={selectableIds.length === 0}
+            className="text-sm font-medium px-3 py-2 rounded-xl bg-gray-800 active:bg-gray-700 text-gray-200 disabled:opacity-40 shrink-0"
+          >
+            {allSelected ? "전체 해제" : "전체 선택"}
+          </button>
+          <span className="text-sm text-gray-300 truncate">
             <span className="text-white font-semibold">{selected.size}장</span> 선택됨
           </span>
           <button
             onClick={() => setConfirmDelete(true)}
-            className="px-5 py-2.5 rounded-xl bg-red-600 active:bg-red-700 text-white text-sm font-semibold"
+            disabled={selected.size === 0}
+            className="px-5 py-2.5 rounded-xl bg-red-600 active:bg-red-700 text-white text-sm font-semibold disabled:opacity-40 shrink-0"
           >
             삭제
           </button>
